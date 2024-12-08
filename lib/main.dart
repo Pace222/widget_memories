@@ -1,8 +1,14 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:home_widget/home_widget.dart';
 
 import 'drive.dart';
+
+const String filename = 'todaysPhoto.jpg';
+
+const String iOSWidgetName = 'PhotoWidget';
+const String androidWidgetName = 'PhotoWidget';
 
 void main() {
   runApp(const App());
@@ -19,15 +25,19 @@ class App extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const HomePage(title: 'Sharing memories'),
+      home: const HomePage(
+        title: 'Sharing memories',
+        filename: filename
+      ),
     );
   }
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key, required this.title});
+  const HomePage({super.key, required this.title, required this.filename});
 
   final String title;
+  final String filename;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -43,12 +53,59 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  void _updateWidget() {
+  void _updateWidget() async {
+
+    void displayMessage(String message, {bool isError = true}) {
+      ScaffoldMessenger.of(context).removeCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary,
+        duration: const Duration(seconds: 2),
+      ));
+    }
+
     // Update the home widget
+    var (file, error) = downloadFile(_apiURL!, widget.filename);
+    if (file == null) {
+      displayMessage(error ?? 'Failed to update the widget');
+      return;
+    }
+
+    HomeWidget.saveWidgetData('filename', file.path);
+
+    try {
+      var ok = await HomeWidget.updateWidget(
+        iOSName: iOSWidgetName,
+        androidName: androidWidgetName,
+      );
+
+      if (ok != null && ok) {
+        displayMessage('Widget updated successfully', isError: false);
+
+        setState(() {
+          _imageFile = file;
+        });
+      } else {
+        displayMessage('Failed to update the widget');
+      }
+    } catch (e) {
+      displayMessage('Failed to update the widget');
+    }
   }
 
   void _clearWidget() {
     // Clear the home widget
+    setState(() {
+      _apiURL = null;
+      _imageFile = null;
+    });
+
+    HomeWidget.saveWidgetData('filename', null);
+
+    HomeWidget.updateWidget(
+      iOSName: iOSWidgetName,
+      androidName: androidWidgetName,
+    );
   }
 
   @override
@@ -121,7 +178,6 @@ class _HomePageState extends State<HomePage> {
                   ), // Empty space if the image is null
               ],
             ),
-            
             const Spacer(flex:1),
           ],
         ),
