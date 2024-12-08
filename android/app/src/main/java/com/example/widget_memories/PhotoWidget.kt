@@ -25,7 +25,7 @@ class PhotoWidget : AppWidgetProvider() {
             val widgetData = HomeWidgetPlugin.getData(context)
             val views = RemoteViews(context.packageName, R.layout.photo_widget).apply {
                 val imageName = widgetData.getString("filename", null)
-                
+
                 val bitmap: Bitmap = when {
                     imageName == null -> createBlackImage()
                     else -> {
@@ -38,7 +38,17 @@ class PhotoWidget : AppWidgetProvider() {
                     }
                 }
 
-                setImageViewBitmap(R.id.widget_image, bitmap)
+                val aspectRatio = bitmap.width / bitmap.height.toFloat()
+                val width = 1000
+                val height = Math.round(width / aspectRatio)
+                val scaledBitmap = Bitmap.createScaledBitmap(
+                    bitmap,
+                    width,
+                    height,
+                    true
+                )
+
+                setImageViewBitmap(R.id.widget_image, scaledBitmap)
             }
 
             appWidgetManager.updateAppWidget(appWidgetId, views)
