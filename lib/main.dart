@@ -1,13 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 
-// Regular expression to validate Google Drive folder URLs
-final RegExp driveFolderRegex = RegExp(
-  r'^https:\/\/drive\.google\.com\/drive\/(?:u\/\d+\/)?folders\/([a-zA-Z0-9_-]+)(?:\?usp=sharing)?$',
-);
-const String driveApiKey = 'AIzaSyDUSefAwtItioFWlbIX0jGDUybWVmQosX0';
+import 'drive.dart';
 
 void main() {
   runApp(const App());
@@ -149,36 +144,22 @@ class _URLPickerState extends State<_URLPicker> {
   final TextEditingController _controller = TextEditingController();
   String? _validationError;
 
-  Future<String?> _checkApiUrl(apiUrl) async {
-    if (!driveFolderRegex.hasMatch(apiUrl)) {
-      // Invalid URL format
-      return 'Invalid Google Drive folder URL';
-    }
+  void _checkApiUrl(apiUrl) async {
+    String? error = await checkApiUrl(apiUrl);
+    
+    setState(() {
+      _validationError = error;
+    });
 
-    // Extract folder ID from the URL
-    final match = driveFolderRegex.firstMatch(apiUrl);
-    final folderId = match?.group(1);
-
-    if (folderId == null) {
-      return 'Unable to extract folder ID from the URL';
-    }
-
-    try {
-      // Validate the folder is public by making a request to Google Drive API
-      final url = Uri.parse('https://www.googleapis.com/drive/v3/files?q="$folderId"+in+parents&key=$driveApiKey');
-
-      final response = await http.get(url);
-
-      if (response.statusCode == 200) {
-        // Successfully validated; update the state
-        widget.onApiURLChanged(apiUrl);
-        return null;
-      } else {
-        return 'The folder is not public or accessible';
-      }
-    } catch (e) {
-      // Handle any unexpected errors
-      return 'Error: ${e.toString()}';
+    if (error == null) {
+      // Successfully validated
+  
+      // Update the state
+      widget.onApiURLChanged(apiUrl);
+      // Clear text field
+      _controller.clear();
+      // Remove keyboard
+      FocusManager.instance.primaryFocus?.unfocus();
     }
   }
 
@@ -220,18 +201,8 @@ class _URLPickerState extends State<_URLPicker> {
               ),
             ),
             ElevatedButton(
-              onPressed: () async {
-                String? error = await _checkApiUrl(_controller.text);
-              
-                setState(() {
-                  _validationError = error;
-                });
-
-                if (error == null) {
-                  _controller.clear();
-                  // Remove keyboard
-                  FocusManager.instance.primaryFocus?.unfocus();
-                }
+              onPressed: () {
+                _checkApiUrl(_controller.text);
               },
               child: const Text('Check'),
             ),
