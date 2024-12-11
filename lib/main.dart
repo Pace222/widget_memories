@@ -257,7 +257,7 @@ class _HomePageContentState extends State<HomePageContent> {
 
             const Spacer(flex:20),
 
-            const ImageDisplay(),
+            const _ImageDisplay(),
 
             const Spacer(flex:10),
           ],
@@ -415,8 +415,8 @@ class _URLPickerState extends State<_URLPicker> {
   }
 }
 
-class ImageDisplay extends StatelessWidget {
-  const ImageDisplay({super.key});
+class _ImageDisplay extends StatelessWidget {
+  const _ImageDisplay({super.key});
 
 
   @override
