@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-const int finalWidth = 200;
+const int finalWidth = 1080;
 
 Future<File> saveImageWithText(Uint8List imageBytes, String text, String filename) async {
   // Reduce the resolution
