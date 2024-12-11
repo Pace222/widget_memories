@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 const int finalWidth = 200;
 
@@ -30,10 +31,11 @@ Future<File> saveImageWithText(Uint8List imageBytes, String text, String filenam
   final textPainter = TextPainter(
     text: TextSpan(
       text: text,
-      style: const TextStyle(
-        color: Colors.red ,
+      style: GoogleFonts.lato(
+        color: Colors.red,
         fontSize: finalWidth / 10,
-        fontWeight: FontWeight.bold,
+        fontWeight: FontWeight.w900,
+        fontStyle: FontStyle.italic,
       ),
     ),
     textDirection: TextDirection.ltr,

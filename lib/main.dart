@@ -173,7 +173,7 @@ class _HomePageContentState extends State<HomePageContent> {
 
       // Save the file edited with the photo's date
       final directory = await getApplicationDocumentsDirectory();
-      final file = await saveImageWithText(imageBytes, DateFormat('yyyy-MM-dd').format(DateTime.parse(todaysPhoto['createdTime']!)), "${directory.path}/$filename");
+      final file = await saveImageWithText(imageBytes, DateFormat('dd/MM/yyyy').format(DateTime.parse(todaysPhoto['createdTime']!)), "${directory.path}/$filename");
 
       await _saveHomeWidget(file);
   
