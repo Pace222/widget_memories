@@ -124,6 +124,14 @@ class _HomePageContentState extends State<HomePageContent> {
     ));
   }
 
+  void _clearBlacklist() {
+    storage!.getKeys().forEach((key) {
+      if (key != 'apiURL') {
+        storage!.remove(key);
+      }
+    });
+  }
+
   void _clearStorage() {
     storage!.clear();
   }
@@ -159,7 +167,9 @@ class _HomePageContentState extends State<HomePageContent> {
 
       // "Randomly" select the picture
       var blacklist = storage!.getKeys().fold<Map<String, String>>({}, (acc, key) {
+        if (key != 'apiURL') {
         acc[key] = storage!.getString(key)!;
+        }
         return acc;
       });
       final (todaysPhoto, oldestPhotoId) = await consensualRandom(allPhotos, blacklist);
@@ -225,7 +235,7 @@ class _HomePageContentState extends State<HomePageContent> {
 
             LoadingButton(
               onPressed: _apiURL == null ? null : () async {
-                _clearStorage();
+                _clearBlacklist();
                 await _updateWidget();
               },
               text: 'Update widget',
