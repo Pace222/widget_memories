@@ -202,6 +202,11 @@ class _HomePageContentState extends State<HomePageContent> {
         ),
       );
     }
+
+    // Use MediaQuery to get the available height minus the keyboard
+    final availableHeight = MediaQuery.of(context).size.height -
+        MediaQuery.of(context).viewInsets.bottom; // Accounts for the keyboard
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
@@ -212,11 +217,11 @@ class _HomePageContentState extends State<HomePageContent> {
         child: Column(
           children: <Widget>[
 
-            const Spacer(flex:1),
+            const Spacer(flex:10),
 
             _URLPicker(apiURL: _apiURL, areButtonsDisabled: _areButtonsDisabled, setApiURL: _setApiURL, setDisableButtons: _setDisableButtons),
 
-            const Spacer(flex:2),
+            const Spacer(flex:20),
 
             LoadingButton(
               onPressed: _apiURL == null ? null : () async {
@@ -225,13 +230,13 @@ class _HomePageContentState extends State<HomePageContent> {
               },
               text: 'Update widget',
               style: ElevatedButton.styleFrom(
-                minimumSize: const Size(200, 100),
+                minimumSize: Size(200, availableHeight * 0.12),
               ),
               areButtonsDisabled: _areButtonsDisabled,
               setDisableButtons: _setDisableButtons,
             ),
 
-            const SizedBox(height: 16),
+            const Spacer(flex:5),
 
             LoadingButton(
               onPressed: () async {
@@ -240,7 +245,7 @@ class _HomePageContentState extends State<HomePageContent> {
               },
               text: 'Clear widget',
               style: ElevatedButton.styleFrom(
-                minimumSize: const Size(100, 50),
+                minimumSize: Size(100, availableHeight * 0.06),
                 foregroundColor: Theme.of(context).colorScheme.onError,
                 backgroundColor: Theme.of(context).colorScheme.error,
               ),
@@ -250,11 +255,11 @@ class _HomePageContentState extends State<HomePageContent> {
             ),
                         
 
-            const Spacer(flex:2),
+            const Spacer(flex:20),
 
             const ImageDisplay(),
 
-            const Spacer(flex:1),
+            const Spacer(flex:10),
           ],
         ),
       ),
