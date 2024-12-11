@@ -38,17 +38,7 @@ class PhotoWidget : AppWidgetProvider() {
                     }
                 }
 
-                val aspectRatio = bitmap.width / bitmap.height.toFloat()
-                val width = 1000
-                val height = Math.round(width / aspectRatio)
-                val scaledBitmap = Bitmap.createScaledBitmap(
-                    bitmap,
-                    width,
-                    height,
-                    true
-                )
-
-                setImageViewBitmap(R.id.widget_image, scaledBitmap)
+                setImageViewBitmap(R.id.widget_image, bitmap)
             }
 
             appWidgetManager.updateAppWidget(appWidgetId, views)
