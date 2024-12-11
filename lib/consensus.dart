@@ -3,13 +3,12 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 const int blacklistMaxSize = 14; // 2 weeks
 
-Future<(Map<String, String>, String?)> consensualRandom(List<Map<String, String>> allPhotos, Map<String, String> blacklist) async {
+Future<Map<String, String>> consensualRandom(List<Map<String, String>> allPhotos, List<String> blacklist) async {
   final groupedPhotos = allPhotos.fold<Map<String, List<Map<String, String>>>>({}, (acc, photo) {
-    final createdTime = DateTime.parse(photo['createdTime'] as String);
+    final createdTime = DateTime.parse(photo['createdTime']!);
     final monthDay = DateFormat('MM-dd').format(createdTime);
     acc[monthDay] = [...(acc[monthDay] ?? []), photo];
     return acc;
@@ -25,17 +24,17 @@ Future<(Map<String, String>, String?)> consensualRandom(List<Map<String, String>
   } while (photo == null);
 
   // Add photo to blacklist
-  blacklist[photo['id']!] =  seedStr;
-  String? oldestPhotoId;
+  blacklist.add(photo['id']!);
+
   if (blacklist.length > blacklistMaxSize) {
-    // Remove oldest photo based on time
-    oldestPhotoId = blacklist.keys.reduce((a, b) => DateTime.parse(blacklist[a]!).compareTo(DateTime.parse(blacklist[b]!)) < 0 ? a : b);
+    // Remove oldest photo
+    blacklist.removeAt(0);
   }
 
-  return (photo, oldestPhotoId);
+  return photo;
 }
 
-Map<String, String>? _checkDate(String seedStr, DateTime date, Map<String, List<Map<String, String>>> groupedPhotos, Map<String, String> storage) {
+Map<String, String>? _checkDate(String seedStr, DateTime date, Map<String, List<Map<String, String>>> groupedPhotos, List<String> blacklist) {
   final monthDay = DateFormat('MM-dd').format(date);
 
   final candidates = groupedPhotos[monthDay];
@@ -46,7 +45,7 @@ Map<String, String>? _checkDate(String seedStr, DateTime date, Map<String, List<
   _deterministicShuffle(seedStr, candidates);
 
   Map<String, String>? photo = candidates.where(
-    (photo) => !storage.containsKey(photo['id'] as String)
+    (photo) => !blacklist.contains(photo['id']!)
   ).firstOrNull;
 
   return photo;

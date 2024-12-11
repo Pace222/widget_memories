@@ -9,18 +9,58 @@ import 'package:intl/intl.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:widget_memories/home_widget.dart';
 import 'package:widget_memories/image_bloc.dart';
+import 'package:workmanager/workmanager.dart';
 
 import 'consensus.dart';
 import 'drive.dart';
 import 'edit_image.dart';
+
+const String dailyTaskKey = 'dailyUpdate';
+const int updateTime = 2; // 2 AM
 
 const String filename = 'todaysPhoto.png';
 
 const String iOSWidgetName = 'PhotoWidget';
 const String androidWidgetName = 'PhotoWidget';
 
+
+@pragma('vm:entry-point') // Mandatory if the App is obfuscated or using Flutter 3.1+
+void backgroundCallback() {
+  Workmanager().executeTask((task, inputData) {
+    if (task == dailyTaskKey) {
+      try {
+        updateHomeWidget(SharedPreferencesAsync());
+      } catch (e) {
+        return Future.value(false);
+      }
+    }
+    return Future.value(true);
+  });
+}
+
+int _calculateInitialDelay() {
+  final now = DateTime.now();
+  final targetTime = DateTime(now.year, now.month, now.day, updateTime, 0, 0);
+  if (now.isAfter(targetTime)) {
+    targetTime.add(const Duration(days: 1));
+  }
+  return targetTime.difference(now).inSeconds;
+}
+
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  Workmanager().initialize(
+    backgroundCallback, // The top level function, aka callbackDispatcher
+    isInDebugMode: false // If enabled it will post a notification whenever the task is running. Handy for debugging tasks
+  );
+  Workmanager().registerPeriodicTask(
+    dailyTaskKey, // Unique identifier for the task
+    dailyTaskKey,
+    frequency: const Duration(hours: 24), // Run every 24 hours
+    initialDelay: Duration(seconds: _calculateInitialDelay()), // Adjust to start at chosen time
+  );
   runApp(const App());
 }
 
@@ -62,23 +102,19 @@ class HomePageContent extends StatefulWidget {
 }
 
 class _HomePageContentState extends State<HomePageContent> {
-  SharedPreferences? storage;
+  SharedPreferencesAsync storage = SharedPreferencesAsync();
   String? _apiURL;
   bool _areButtonsDisabled = false;
 
   @override
   void initState() {
     super.initState();
-    initStorageAndApiURL();
+    initApiURL();
     initImage();
   }
 
-  void initStorageAndApiURL() async {
-    final prefs = await SharedPreferences.getInstance();
-    final apiURL = prefs.getString('apiURL');
-    setState(() {
-      storage = prefs;
-    });
+  Future<void> initApiURL() async {
+    final apiURL = await storage.getString('apiURL');
     if (apiURL != null) {
       setState(() {
         _setApiURL(apiURL);
@@ -86,7 +122,7 @@ class _HomePageContentState extends State<HomePageContent> {
     }
   }
 
-  void initImage() async {
+  Future<void> initImage() async {
     final directory = await getApplicationDocumentsDirectory();
     final file = File("${directory.path}/$filename");
     if (file.existsSync()) {
@@ -95,7 +131,7 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   void _setApiURL(String apiURL) {
-    storage!.setString('apiURL', apiURL);
+    storage.setString('apiURL', apiURL);
     setState(() {
       _apiURL = apiURL;
     });
@@ -125,68 +161,31 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   void _clearBlacklist() {
-    storage!.getKeys().forEach((key) {
-      if (key != 'apiURL') {
-        storage!.remove(key);
-      }
-    });
+    storage.remove('blacklist');
   }
 
   void _clearStorage() {
-    storage!.clear();
+    storage.clear();
   }
 
-  Future<bool> _saveHomeWidget(File? file) async {
+  Future<bool> _setHomeWidget(File? file) async {
     try {
-      await HomeWidget.saveWidgetData('filename', file?.path);
+      await setHomeWidget(file);
+      
+      _displayMessage('Widget updated successfully', isError: false);
+      _setImageFile(file);
 
-      var ok = await HomeWidget.updateWidget(
-        iOSName: iOSWidgetName,
-        androidName: androidWidgetName,
-      );
-
-      if (ok != null && ok) {
-        _displayMessage('Widget updated successfully', isError: false);
-
-        _setImageFile(file);
-
-        return true;
-      } else {
-        _displayMessage('Failed to update the widget');
-      }
+      return true;
     } catch (e) {
       _displayMessage(e.toString());
+      return false;
     }
-
-    return false;
   }
 
   Future<void> _updateWidget() async {
     try {
-      final allPhotos = await getAllPhotos(_apiURL as String);
-
-      // "Randomly" select the picture
-      var blacklist = storage!.getKeys().fold<Map<String, String>>({}, (acc, key) {
-        if (key != 'apiURL') {
-        acc[key] = storage!.getString(key)!;
-        }
-        return acc;
-      });
-      final (todaysPhoto, oldestPhotoId) = await consensualRandom(allPhotos, blacklist);
-      // Remove oldest photo from storage
-      if (oldestPhotoId != null) {
-        storage!.remove(oldestPhotoId);
-      }
-      final fileId = todaysPhoto['id'] as String;
-
-      final imageBytes = await downloadPhoto(fileId);
-
-      // Save the file edited with the photo's date
-      final directory = await getApplicationDocumentsDirectory();
-      final file = await saveImageWithText(imageBytes, DateFormat('dd/MM/yyyy').format(DateTime.parse(todaysPhoto['createdTime']!)), "${directory.path}/$filename");
-
-      await _saveHomeWidget(file);
-  
+      File file = await updateHomeWidget(storage);
+      await _setHomeWidget(file);
     } catch (e) {
       _displayMessage(e.toString());
     }
@@ -194,7 +193,7 @@ class _HomePageContentState extends State<HomePageContent> {
 
   Future<void> _clearWidget() async {
     // Clear the home widget
-    var ok = await _saveHomeWidget(null);
+    var ok = await _setHomeWidget(null);
 
     if (ok) {
       setState(() {
@@ -205,14 +204,6 @@ class _HomePageContentState extends State<HomePageContent> {
 
   @override
   Widget build(BuildContext context) {
-    if (!mounted || storage == null) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
-
     // Use MediaQuery to get the available height minus the keyboard
     final availableHeight = MediaQuery.of(context).size.height -
         MediaQuery.of(context).viewInsets.bottom; // Accounts for the keyboard

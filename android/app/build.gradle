@@ -5,6 +5,10 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+dependencies {
+    implementation "androidx.work:work-runtime-ktx:2.9.1"
+}
+
 android {
     namespace = "com.example.widget_memories"
     compileSdk = flutter.compileSdkVersion
