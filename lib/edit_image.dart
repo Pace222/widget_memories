@@ -41,8 +41,8 @@ Future<File> saveImageWithText(Uint8List imageBytes, String text, String filenam
   textPainter.layout();
 
   // Position the text at the center bottom of the image
-  final textX = (originalImage.width - textPainter.width) - finalWidth ~/ 20; // 10px padding from right
-  final textY = originalImage.height - textPainter.height - finalWidth ~/ 20; // 10px padding from bottom
+  final textX = (originalImage.width - textPainter.width) - finalWidth ~/ 20; // padding from right
+  final textY = originalImage.height - textPainter.height - finalWidth ~/ 20; // padding from bottom
 
   textPainter.paint(canvas, Offset(textX, textY));
 
