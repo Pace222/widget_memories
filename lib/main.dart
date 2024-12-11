@@ -4,8 +4,6 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:home_widget/home_widget.dart';
-import 'package:intl/intl.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,9 +11,7 @@ import 'package:widget_memories/home_widget.dart';
 import 'package:widget_memories/image_bloc.dart';
 import 'package:workmanager/workmanager.dart';
 
-import 'consensus.dart';
 import 'drive.dart';
-import 'edit_image.dart';
 
 const String dailyTaskKey = 'dailyUpdate';
 const int updateTime = 2; // 2 AM
@@ -25,8 +21,8 @@ const String filename = 'todaysPhoto.png';
 const String iOSWidgetName = 'PhotoWidget';
 const String androidWidgetName = 'PhotoWidget';
 
-
-@pragma('vm:entry-point') // Mandatory if the App is obfuscated or using Flutter 3.1+
+@pragma(
+    'vm:entry-point') // Mandatory if the App is obfuscated or using Flutter 3.1+
 void backgroundCallback() {
   Workmanager().executeTask((task, inputData) {
     if (task == dailyTaskKey) {
@@ -52,14 +48,16 @@ int _calculateInitialDelay() {
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   Workmanager().initialize(
-    backgroundCallback, // The top level function, aka callbackDispatcher
-    isInDebugMode: false // If enabled it will post a notification whenever the task is running. Handy for debugging tasks
-  );
+      backgroundCallback, // The top level function, aka callbackDispatcher
+      isInDebugMode:
+          false // If enabled it will post a notification whenever the task is running. Handy for debugging tasks
+      );
   Workmanager().registerPeriodicTask(
     dailyTaskKey, // Unique identifier for the task
     dailyTaskKey,
     frequency: const Duration(hours: 24), // Run every 24 hours
-    initialDelay: Duration(seconds: _calculateInitialDelay()), // Adjust to start at chosen time
+    initialDelay: Duration(
+        seconds: _calculateInitialDelay()), // Adjust to start at chosen time
   );
   runApp(const App());
 }
@@ -155,7 +153,9 @@ class _HomePageContentState extends State<HomePageContent> {
     ScaffoldMessenger.of(context).removeCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(message),
-      backgroundColor: isError ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary,
+      backgroundColor: isError
+          ? Theme.of(context).colorScheme.error
+          : Theme.of(context).colorScheme.primary,
       duration: const Duration(seconds: 4),
     ));
   }
@@ -171,7 +171,7 @@ class _HomePageContentState extends State<HomePageContent> {
   Future<bool> _setHomeWidget(File? file) async {
     try {
       await setHomeWidget(file);
-      
+
       _displayMessage('Widget updated successfully', isError: false);
       _setImageFile(file);
 
@@ -217,18 +217,20 @@ class _HomePageContentState extends State<HomePageContent> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: <Widget>[
-
-            const Spacer(flex:10),
-
-            _URLPicker(apiURL: _apiURL, areButtonsDisabled: _areButtonsDisabled, setApiURL: _setApiURL, setDisableButtons: _setDisableButtons),
-
-            const Spacer(flex:20),
-
+            const Spacer(flex: 10),
+            _URLPicker(
+                apiURL: _apiURL,
+                areButtonsDisabled: _areButtonsDisabled,
+                setApiURL: _setApiURL,
+                setDisableButtons: _setDisableButtons),
+            const Spacer(flex: 20),
             LoadingButton(
-              onPressed: _apiURL == null ? null : () async {
-                _clearBlacklist();
-                await _updateWidget();
-              },
+              onPressed: _apiURL == null
+                  ? null
+                  : () async {
+                      _clearBlacklist();
+                      await _updateWidget();
+                    },
               text: 'Update widget',
               style: ElevatedButton.styleFrom(
                 minimumSize: Size(200, availableHeight * 0.12),
@@ -236,9 +238,7 @@ class _HomePageContentState extends State<HomePageContent> {
               areButtonsDisabled: _areButtonsDisabled,
               setDisableButtons: _setDisableButtons,
             ),
-
-            const Spacer(flex:5),
-
+            const Spacer(flex: 5),
             LoadingButton(
               onPressed: () async {
                 _clearStorage();
@@ -254,13 +254,9 @@ class _HomePageContentState extends State<HomePageContent> {
               areButtonsDisabled: _areButtonsDisabled,
               setDisableButtons: _setDisableButtons,
             ),
-                        
-
-            const Spacer(flex:20),
-
+            const Spacer(flex: 20),
             const _ImageDisplay(),
-
-            const Spacer(flex:10),
+            const Spacer(flex: 10),
           ],
         ),
       ),
@@ -268,9 +264,18 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 }
 
-
 class LoadingButton extends StatefulWidget {
-  const LoadingButton({super.key, required this.onPressed, required this.text, this.style, this.animationColor, this.animationSize, required bool areButtonsDisabled, required void Function(bool) setDisableButtons}) : _areButtonsDisabled = areButtonsDisabled, _setDisableButtons = setDisableButtons;
+  const LoadingButton(
+      {super.key,
+      required this.onPressed,
+      required this.text,
+      this.style,
+      this.animationColor,
+      this.animationSize,
+      required bool areButtonsDisabled,
+      required void Function(bool) setDisableButtons})
+      : _areButtonsDisabled = areButtonsDisabled,
+        _setDisableButtons = setDisableButtons;
 
   final Future<void> Function()? onPressed;
   final String text;
@@ -291,11 +296,13 @@ class _LoadingButtonState extends State<LoadingButton> {
 
   @override
   Widget build(BuildContext context) {
-    final Color buttonColor = widget.animationColor ?? Theme.of(context).colorScheme.primary;
+    final Color buttonColor =
+        widget.animationColor ?? Theme.of(context).colorScheme.primary;
 
     final Text textWidget = Text(widget.text);
     final TextPainter textPainter = TextPainter(
-      text: TextSpan(text: widget.text, style: DefaultTextStyle.of(context).style),
+      text: TextSpan(
+          text: widget.text, style: DefaultTextStyle.of(context).style),
       maxLines: 1,
       textDirection: ui.TextDirection.ltr,
     )..layout(minWidth: 0, maxWidth: double.infinity);
@@ -303,32 +310,45 @@ class _LoadingButtonState extends State<LoadingButton> {
     final double textHeight = textPainter.size.height;
 
     return ElevatedButton(
-      onPressed: _isLoading || widget._areButtonsDisabled || widget.onPressed == null ? null : () async {
-        setState(() {
-          _isLoading = true;
-        });
-        widget._setDisableButtons(true);
+      onPressed:
+          _isLoading || widget._areButtonsDisabled || widget.onPressed == null
+              ? null
+              : () async {
+                  setState(() {
+                    _isLoading = true;
+                  });
+                  widget._setDisableButtons(true);
 
-        try {
-          await widget.onPressed!();
-        } finally {
-          widget._setDisableButtons(false);
-          setState(() {
-            _isLoading = false;
-          });
-        }
-      },
+                  try {
+                    await widget.onPressed!();
+                  } finally {
+                    widget._setDisableButtons(false);
+                    setState(() {
+                      _isLoading = false;
+                    });
+                  }
+                },
       style: widget.style,
       child: _isLoading
-        ? LoadingAnimationWidget.waveDots(color: buttonColor, size: widget.animationSize ?? min(textWidth, textHeight))
-        : textWidget,
+          ? LoadingAnimationWidget.waveDots(
+              color: buttonColor,
+              size: widget.animationSize ?? min(textWidth, textHeight))
+          : textWidget,
     );
   }
 }
 
-
 class _URLPicker extends StatefulWidget {
-  const _URLPicker({super.key, required String? apiURL, required bool areButtonsDisabled, required void Function(String) setApiURL, required void Function(bool) setDisableButtons}) : _setDisableButtons = setDisableButtons, _setApiURL = setApiURL, _apiURL = apiURL, _areButtonsDisabled = areButtonsDisabled;
+  const _URLPicker(
+      {super.key,
+      required String? apiURL,
+      required bool areButtonsDisabled,
+      required void Function(String) setApiURL,
+      required void Function(bool) setDisableButtons})
+      : _setDisableButtons = setDisableButtons,
+        _setApiURL = setApiURL,
+        _apiURL = apiURL,
+        _areButtonsDisabled = areButtonsDisabled;
 
   final String? _apiURL;
   final bool _areButtonsDisabled;
@@ -350,14 +370,14 @@ class _URLPickerState extends State<_URLPicker> {
     } catch (e) {
       error = e.toString();
     }
-    
+
     setState(() {
       _validationError = error;
     });
 
     if (error == null) {
       // Successfully validated
-  
+
       widget._setApiURL(apiUrl);
       _controller.clear();
       FocusManager.instance.primaryFocus?.unfocus();
@@ -372,13 +392,17 @@ class _URLPickerState extends State<_URLPicker> {
         RichText(
           text: TextSpan(
             text: 'Current URL: ',
-            style: Theme.of(context).textTheme.labelMedium!.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(context)
+                .textTheme
+                .labelMedium!
+                .copyWith(fontWeight: FontWeight.bold),
             children: <TextSpan>[
               TextSpan(
                 text: widget._apiURL ?? 'Not set',
                 style: TextStyle(
                   fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                  color:
+                      Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
                   fontWeight: FontWeight.normal,
                 ),
               ),
@@ -390,16 +414,21 @@ class _URLPickerState extends State<_URLPicker> {
           children: <Widget>[
             Expanded(
               child: TextField(
-                controller: _controller,
-                decoration: InputDecoration(
-                  border: const UnderlineInputBorder(),
-                  labelText: 'Google Drive URL',
-                  hintText: 'https://drive.google.com/drive/folders/[a-zA-Z0-9_-]+',
-                  hintStyle: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.25)),
-                  errorText: _validationError,
-                ),
-                style: const TextStyle(fontSize: 12)
-              ),
+                  controller: _controller,
+                  decoration: InputDecoration(
+                    border: const UnderlineInputBorder(),
+                    labelText: 'Google Drive URL',
+                    hintText:
+                        'https://drive.google.com/drive/folders/[a-zA-Z0-9_-]+',
+                    hintStyle: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withOpacity(0.25)),
+                    errorText: _validationError,
+                  ),
+                  style: const TextStyle(fontSize: 12)),
             ),
             LoadingButton(
               onPressed: () async {
@@ -410,7 +439,7 @@ class _URLPickerState extends State<_URLPicker> {
               setDisableButtons: widget._setDisableButtons,
             ),
           ],
-        ),  
+        ),
       ],
     );
   }
@@ -419,47 +448,48 @@ class _URLPickerState extends State<_URLPicker> {
 class _ImageDisplay extends StatelessWidget {
   const _ImageDisplay({super.key});
 
-
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<ImageBloc, ImageState>(
-      builder: (context, state) {
-        if (state is ImageLoaded) {
-          return Column(
-            children: [
-              Text(
-                'Current Picture:',
-                style: Theme.of(context).textTheme.labelLarge,
+    return BlocBuilder<ImageBloc, ImageState>(builder: (context, state) {
+      if (state is ImageLoaded) {
+        return Column(
+          children: [
+            Text(
+              'Current Picture:',
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+            const SizedBox(height: 8),
+            Image.memory(
+              state.imageFile.readAsBytesSync(),
+              width: 200,
+              height: 200,
+            )
+          ],
+        );
+      } else {
+        return Column(
+          children: [
+            Text(
+              'Current Picture:',
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+            const SizedBox(height: 8),
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withOpacity(0.5)),
+                borderRadius: BorderRadius.circular(4),
               ),
-              const SizedBox(height: 8),
-              Image.memory(
-                state.imageFile.readAsBytesSync(),
-                width: 200,
-                height: 200,
-              )
-            ],
-          );
-        } else {
-          return Column(
-            children: [
-              Text(
-                'Current Picture:',
-                style: Theme.of(context).textTheme.labelLarge,
-              ),
-              const SizedBox(height: 8),
-              Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                width: 200,
-                height: 200,
-                child: const Center(child: Text('No image selected')),
-              ),
-            ],
-          );
-        }
+              width: 200,
+              height: 200,
+              child: const Center(child: Text('No image selected')),
+            ),
+          ],
+        );
       }
-    );
+    });
   }
 }

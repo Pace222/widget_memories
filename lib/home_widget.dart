@@ -31,13 +31,17 @@ Future<File> updateHomeWidget(SharedPreferencesAsync storage) async {
 
   // Save the new blacklist
   storage.setStringList('blacklist', blacklist);
-  
+
   // Download the photo
   final imageBytes = await downloadPhoto(todaysPhoto['id']!);
 
   // Save the file edited with the photo's date
   final directory = await getApplicationDocumentsDirectory();
-  final file = await saveImageWithText(imageBytes, DateFormat('dd/MM/yyyy').format(DateTime.parse(todaysPhoto['createdTime']!)), "${directory.path}/$filename");
+  final file = await saveImageWithText(
+      imageBytes,
+      DateFormat('dd/MM/yyyy')
+          .format(DateTime.parse(todaysPhoto['createdTime']!)),
+      "${directory.path}/$filename");
 
   return file;
 }

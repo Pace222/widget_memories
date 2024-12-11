@@ -7,7 +7,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 const int finalWidth = 1080;
 
-Future<File> saveImageWithText(Uint8List imageBytes, String text, String filename) async {
+Future<File> saveImageWithText(
+    Uint8List imageBytes, String text, String filename) async {
   // Reduce the resolution
   final resizedBytes = await FlutterImageCompress.compressWithList(
     imageBytes,
@@ -43,8 +44,11 @@ Future<File> saveImageWithText(Uint8List imageBytes, String text, String filenam
   textPainter.layout();
 
   // Position the text at the center bottom of the image
-  final textX = (originalImage.width - textPainter.width) / 2; // center horizontally
-  final textY = originalImage.height - textPainter.height - finalWidth ~/ 15; // padding from bottom
+  final textX =
+      (originalImage.width - textPainter.width) / 2; // center horizontally
+  final textY = originalImage.height -
+      textPainter.height -
+      finalWidth ~/ 15; // padding from bottom
 
   textPainter.paint(canvas, Offset(textX, textY));
 
