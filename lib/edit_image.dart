@@ -2,10 +2,19 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+
+const int finalWidth = 200;
 
 Future<File> saveImageWithText(Uint8List imageBytes, String text, String filename) async {
+  // Reduce the resolution
+  final resizedBytes = await FlutterImageCompress.compressWithList(
+    imageBytes,
+    minWidth: finalWidth,
+    minHeight: 0,
+  );
   // Decode the image bytes into an Image
-  final codec = await ui.instantiateImageCodec(imageBytes);
+  final codec = await ui.instantiateImageCodec(resizedBytes);
   final frame = await codec.getNextFrame();
   final originalImage = frame.image;
 
@@ -22,8 +31,8 @@ Future<File> saveImageWithText(Uint8List imageBytes, String text, String filenam
     text: TextSpan(
       text: text,
       style: const TextStyle(
-        color: Colors.black,
-        fontSize: 20.0,
+        color: Colors.red ,
+        fontSize: finalWidth / 10,
         fontWeight: FontWeight.bold,
       ),
     ),
@@ -32,8 +41,8 @@ Future<File> saveImageWithText(Uint8List imageBytes, String text, String filenam
   textPainter.layout();
 
   // Position the text at the center bottom of the image
-  final textX = (originalImage.width - textPainter.width) / 2;
-  final textY = originalImage.height - textPainter.height - 10; // 10px padding from bottom
+  final textX = (originalImage.width - textPainter.width) - finalWidth ~/ 20; // 10px padding from right
+  final textY = originalImage.height - textPainter.height - finalWidth ~/ 20; // 10px padding from bottom
 
   textPainter.paint(canvas, Offset(textX, textY));
 
