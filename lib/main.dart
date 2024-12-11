@@ -62,13 +62,28 @@ class HomePageContent extends StatefulWidget {
 }
 
 class _HomePageContentState extends State<HomePageContent> {
+  SharedPreferences? storage;
   String? _apiURL;
   bool _areButtonsDisabled = false;
 
   @override
   void initState() {
     super.initState();
+    initStorageAndApiURL();
     initImage();
+  }
+
+  void initStorageAndApiURL() async {
+    final prefs = await SharedPreferences.getInstance();
+    final apiURL = prefs.getString('apiURL');
+    setState(() {
+      storage = prefs;
+    });
+    if (apiURL != null) {
+      setState(() {
+        _setApiURL(apiURL);
+      });
+    }
   }
 
   void initImage() async {
@@ -80,6 +95,7 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   void _setApiURL(String apiURL) {
+    storage!.setString('apiURL', apiURL);
     setState(() {
       _apiURL = apiURL;
     });
@@ -108,9 +124,8 @@ class _HomePageContentState extends State<HomePageContent> {
     ));
   }
 
-  Future<void> _clearPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    prefs.clear();
+  void _clearStorage() {
+    storage!.clear();
   }
 
   Future<bool> _saveHomeWidget(File? file) async {
@@ -143,7 +158,15 @@ class _HomePageContentState extends State<HomePageContent> {
       final allPhotos = await getAllPhotos(_apiURL as String);
 
       // "Randomly" select the picture
-      final todaysPhoto = await consensualRandom(allPhotos);
+      var blacklist = storage!.getKeys().fold<Map<String, String>>({}, (acc, key) {
+        acc[key] = storage!.getString(key)!;
+        return acc;
+      });
+      final (todaysPhoto, oldestPhotoId) = await consensualRandom(allPhotos, blacklist);
+      // Remove oldest photo from storage
+      if (oldestPhotoId != null) {
+        storage!.remove(oldestPhotoId);
+      }
       final fileId = todaysPhoto['id'] as String;
 
       final imageBytes = await downloadPhoto(fileId);
@@ -172,6 +195,13 @@ class _HomePageContentState extends State<HomePageContent> {
 
   @override
   Widget build(BuildContext context) {
+    if (!mounted || storage == null) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
@@ -190,7 +220,7 @@ class _HomePageContentState extends State<HomePageContent> {
 
             LoadingButton(
               onPressed: _apiURL == null ? null : () async {
-                await _clearPrefs();
+                _clearStorage();
                 await _updateWidget();
               },
               text: 'Update widget',
@@ -205,7 +235,7 @@ class _HomePageContentState extends State<HomePageContent> {
 
             LoadingButton(
               onPressed: () async {
-                await _clearPrefs();
+                _clearStorage();
                 await _clearWidget();
               },
               text: 'Clear widget',
