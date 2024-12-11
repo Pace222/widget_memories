@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-
 abstract class ImageEvent {}
 
 class LoadImage extends ImageEvent {
@@ -11,7 +10,6 @@ class LoadImage extends ImageEvent {
 }
 
 class ClearImage extends ImageEvent {}
-
 
 abstract class ImageState {}
 
@@ -24,7 +22,6 @@ class ImageLoaded extends ImageState {
 }
 
 class ImageCleared extends ImageState {}
-
 
 class ImageBloc extends Bloc<ImageEvent, ImageState> {
   ImageBloc() : super(ImageInitial()) {

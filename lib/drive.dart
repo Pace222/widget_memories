@@ -3,7 +3,6 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
-
 // Regular expression to validate Google Drive folder URLs
 final RegExp driveFolderRegex = RegExp(
   r'^https:\/\/drive\.google\.com\/drive\/(?:u\/\d+\/)?folders\/([a-zA-Z0-9_-]+)(?:\?usp=sharing)?$',
@@ -36,10 +35,11 @@ Future<String?> checkApiUrl(String apiUrl) async {
   final String folderId;
   // Extract folder ID from the URL
   folderId = getDriveFolderId(apiUrl);
-  
+
   try {
     // Validate the folder is public by making a request to Google Drive API
-    await fetch('https://www.googleapis.com/drive/v3/files?q="$folderId"+in+parents&key=$driveApiKey');
+    await fetch(
+        'https://www.googleapis.com/drive/v3/files?q="$folderId"+in+parents&key=$driveApiKey');
   } catch (e) {
     return 'The folder is not public or accessible';
   }
@@ -52,9 +52,12 @@ Future<List<Map<String, String>>> getAllPhotos(String apiUrl) async {
 
   // Function to recursively list files in a folder
   Future<List<Map<String, String>>> recursiveFetch(String folderId) async {
-    final response = await fetch('https://www.googleapis.com/drive/v3/files?q="$folderId"+in+parents&key=$driveApiKey&fields=files(id,createdTime,mimeType)');
+    final response = await fetch(
+        'https://www.googleapis.com/drive/v3/files?q="$folderId"+in+parents&key=$driveApiKey&fields=files(id,createdTime,mimeType)');
 
-    final files = jsonDecode(response.body)['files'].map((file) => file as Map<String, dynamic>).toList();
+    final files = jsonDecode(response.body)['files']
+        .map((file) => file as Map<String, dynamic>)
+        .toList();
     final List<Future<List<Map<String, String>>>> futures = [];
 
     for (var file in files) {
@@ -86,6 +89,7 @@ Map<String, String> castMap(Map<String, dynamic> map) {
 }
 
 Future<Uint8List> downloadPhoto(String photoId) async {
-  final response = await fetch('https://www.googleapis.com/drive/v3/files/$photoId?alt=media&key=$driveApiKey');
+  final response = await fetch(
+      'https://www.googleapis.com/drive/v3/files/$photoId?alt=media&key=$driveApiKey');
   return response.bodyBytes;
 }

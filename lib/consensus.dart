@@ -6,8 +6,10 @@ import 'package:intl/intl.dart';
 
 const int blacklistMaxSize = 14; // 2 weeks
 
-Future<Map<String, String>> consensualRandom(List<Map<String, String>> allPhotos, List<String> blacklist) async {
-  final groupedPhotos = allPhotos.fold<Map<String, List<Map<String, String>>>>({}, (acc, photo) {
+Future<Map<String, String>> consensualRandom(
+    List<Map<String, String>> allPhotos, List<String> blacklist) async {
+  final groupedPhotos =
+      allPhotos.fold<Map<String, List<Map<String, String>>>>({}, (acc, photo) {
     final createdTime = DateTime.parse(photo['createdTime']!);
     final monthDay = DateFormat('MM-dd').format(createdTime);
     acc[monthDay] = [...(acc[monthDay] ?? []), photo];
@@ -34,7 +36,11 @@ Future<Map<String, String>> consensualRandom(List<Map<String, String>> allPhotos
   return photo;
 }
 
-Map<String, String>? _checkDate(String seedStr, DateTime date, Map<String, List<Map<String, String>>> groupedPhotos, List<String> blacklist) {
+Map<String, String>? _checkDate(
+    String seedStr,
+    DateTime date,
+    Map<String, List<Map<String, String>>> groupedPhotos,
+    List<String> blacklist) {
   final monthDay = DateFormat('MM-dd').format(date);
 
   final candidates = groupedPhotos[monthDay];
@@ -44,15 +50,16 @@ Map<String, String>? _checkDate(String seedStr, DateTime date, Map<String, List<
 
   _deterministicShuffle(seedStr, candidates);
 
-  Map<String, String>? photo = candidates.where(
-    (photo) => !blacklist.contains(photo['id']!)
-  ).firstOrNull;
+  Map<String, String>? photo = candidates
+      .where((photo) => !blacklist.contains(photo['id']!))
+      .firstOrNull;
 
   return photo;
 }
 
-
 void _deterministicShuffle(String seedStr, List list) {
-  final seedInt = int.parse(sha256.convert(utf8.encode(seedStr)).toString().substring(0, 16), radix: 16);
+  final seedInt = int.parse(
+      sha256.convert(utf8.encode(seedStr)).toString().substring(0, 16),
+      radix: 16);
   list.shuffle(Random(seedInt));
 }
