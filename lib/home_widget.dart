@@ -22,15 +22,11 @@ Future<void> setHomeWidget(File? file) async {
   }
 }
 
-Future<File> updateHomeWidget(SharedPreferencesAsync storage) async {
-  final allPhotos = await getAllPhotos((await storage.getString('apiURL'))!);
+Future<File> fetchFindDownload(String apiURL, List<String> blacklist) async {
+  final allPhotos = await getAllPhotos(apiURL);
 
-  final blacklist = await storage.getStringList('blacklist') ?? [];
   // "Randomly" select the picture
   final todaysPhoto = await consensualRandom(allPhotos, blacklist);
-
-  // Save the new blacklist
-  storage.setStringList('blacklist', blacklist);
 
   // Download the photo
   final imageBytes = await downloadPhoto(todaysPhoto['id']!);
@@ -44,4 +40,18 @@ Future<File> updateHomeWidget(SharedPreferencesAsync storage) async {
       "${directory.path}/$filename");
 
   return file;
+}
+
+Future<File> updateHomeWidget(SharedPreferencesAsync storage, String apiURL, List<String> blacklist) async {
+    File file = await fetchFindDownload(apiURL, blacklist);
+    
+    setHomeWidget(file);
+
+    // Save the new API URL
+    storage.setString('apiURL', apiURL);
+  
+    // Save the new blacklist
+    storage.setStringList('blacklist', blacklist);
+
+    return file;
 }
