@@ -24,10 +24,18 @@ const String androidWidgetName = 'PhotoWidget';
 @pragma(
     'vm:entry-point') // Mandatory if the App is obfuscated or using Flutter 3.1+
 void backgroundCallback() {
-  Workmanager().executeTask((task, inputData) {
+  Workmanager().executeTask((task, inputData) async {
     if (task == dailyTaskKey) {
+      final storage = SharedPreferencesAsync();
+      final apiURL = await storage.getString('apiURL');
+      final blacklist = await storage.getStringList('blacklist');
+      if (apiURL == null || blacklist == null) {
+        // Retry next day
+        return Future.value(true);
+      }
+
       try {
-        updateHomeWidget(SharedPreferencesAsync());
+        updateHomeWidget(SharedPreferencesAsync(), apiURL, blacklist);
       } catch (e) {
         return Future.value(false);
       }
@@ -101,7 +109,10 @@ class HomePageContent extends StatefulWidget {
 
 class _HomePageContentState extends State<HomePageContent> {
   SharedPreferencesAsync storage = SharedPreferencesAsync();
+  
   String? _apiURL;
+  bool _didUpdate = true;
+
   bool _areButtonsDisabled = false;
 
   @override
@@ -113,9 +124,9 @@ class _HomePageContentState extends State<HomePageContent> {
 
   Future<void> initApiURL() async {
     final apiURL = await storage.getString('apiURL');
-    if (apiURL != null) {
-        _setApiURL(apiURL);
-    }
+    setState(() {
+      _apiURL = apiURL;
+    });
   }
 
   Future<void> initImage() async {
@@ -127,9 +138,9 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   void _setApiURL(String apiURL) {
-    storage.setString('apiURL', apiURL);
     setState(() {
       _apiURL = apiURL;
+      _didUpdate = false;
     });
   }
 
@@ -180,23 +191,37 @@ class _HomePageContentState extends State<HomePageContent> {
     }
   }
 
+  void _successfulUpdate(File? file) {
+    _displayMessage('Widget updated successfully', isError: false);
+    _setImageFile(file);
+    setState(() {
+      _didUpdate = true;
+    });
+  }
+
   Future<void> _updateWidget() async {
     try {
-      File file = await updateHomeWidget(storage);
-      await _setHomeWidget(file);
+      _clearBlacklist();
+      File file = await updateHomeWidget(storage, _apiURL!, []);
+
+      _successfulUpdate(file);
     } catch (e) {
       _displayMessage(e.toString());
     }
   }
 
   Future<void> _clearWidget() async {
-    // Clear the home widget
-    var ok = await _setHomeWidget(null);
+    try {
+      await setHomeWidget(null);
 
-    if (ok) {
+      _successfulUpdate(null);
+
+      _clearStorage();
       setState(() {
         _apiURL = null;
       });
+    } catch(e) {
+      _displayMessage(e.toString());
     }
   }
 
@@ -223,10 +248,9 @@ class _HomePageContentState extends State<HomePageContent> {
                 setDisableButtons: _setDisableButtons),
             const Spacer(flex: 20),
             LoadingButton(
-              onPressed: _apiURL == null
+              onPressed: _didUpdate
                   ? null
                   : () async {
-                      _clearBlacklist();
                       await _updateWidget();
                     },
               text: 'Update widget',
@@ -239,7 +263,6 @@ class _HomePageContentState extends State<HomePageContent> {
             const Spacer(flex: 5),
             LoadingButton(
               onPressed: () async {
-                _clearStorage();
                 await _clearWidget();
               },
               text: 'Clear widget',
