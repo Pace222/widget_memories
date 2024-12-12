@@ -109,9 +109,12 @@ class HomePageContent extends StatefulWidget {
 
 class _HomePageContentState extends State<HomePageContent> {
   SharedPreferencesAsync storage = SharedPreferencesAsync();
-  
+
   String? _apiURL;
-  bool _didUpdate = true;
+  final TextEditingController _controller = TextEditingController();
+  String? _validationError;
+
+  bool _updateDisabled = true;
 
   bool _areButtonsDisabled = false;
 
@@ -120,6 +123,7 @@ class _HomePageContentState extends State<HomePageContent> {
     super.initState();
     initApiURL();
     initImage();
+    _controller.addListener(_checkNonEmpty);
   }
 
   Future<void> initApiURL() async {
@@ -137,13 +141,6 @@ class _HomePageContentState extends State<HomePageContent> {
     }
   }
 
-  void _setApiURL(String apiURL) {
-    setState(() {
-      _apiURL = apiURL;
-      _didUpdate = false;
-    });
-  }
-
   void _setImageFile(File? file) {
     if (file != null) {
       context.read<ImageBloc>().add(LoadImage(file));
@@ -158,6 +155,34 @@ class _HomePageContentState extends State<HomePageContent> {
     });
   }
 
+  void _checkNonEmpty() {
+    if (_apiURL == null) {
+      setState(() {
+        _updateDisabled = _controller.text.isEmpty;
+      });
+    }
+  }
+
+  Future<bool> _checkApiUrl(String apiURL) async {
+    try {
+      await checkApiUrl(apiURL);
+
+      // Valid URL
+      setState(() {
+        _apiURL = apiURL;
+        _validationError = null;
+      });
+      _controller.clear();
+      FocusManager.instance.primaryFocus?.unfocus();
+      return true;
+    } catch (e) {
+      setState(() {
+        _validationError = e.toString();
+      });
+      return false;
+    }
+  }
+
   void _displayMessage(String message, {bool isError = true}) {
     ScaffoldMessenger.of(context).removeCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -167,10 +192,6 @@ class _HomePageContentState extends State<HomePageContent> {
           : Theme.of(context).colorScheme.primary,
       duration: const Duration(seconds: 4),
     ));
-  }
-
-  void _clearBlacklist() {
-    storage.remove('blacklist');
   }
 
   void _clearStorage() {
@@ -191,20 +212,20 @@ class _HomePageContentState extends State<HomePageContent> {
     }
   }
 
-  void _successfulUpdate(File? file) {
-    _displayMessage('Widget updated successfully', isError: false);
+  void _successfulUpdate(File? file, String message) {
+    _displayMessage(message, isError: false);
     _setImageFile(file);
-    setState(() {
-      _didUpdate = true;
-    });
   }
 
   Future<void> _updateWidget() async {
     try {
-      _clearBlacklist();
       File file = await updateHomeWidget(storage, _apiURL!, []);
 
-      _successfulUpdate(file);
+      _successfulUpdate(file, 'Widget successfully updated');
+
+      setState(() {
+        _updateDisabled = true;
+      });
     } catch (e) {
       _displayMessage(e.toString());
     }
@@ -214,13 +235,13 @@ class _HomePageContentState extends State<HomePageContent> {
     try {
       await setHomeWidget(null);
 
-      _successfulUpdate(null);
+      _successfulUpdate(null, 'Widget successfully cleared');
 
       _clearStorage();
       setState(() {
         _apiURL = null;
       });
-    } catch(e) {
+    } catch (e) {
       _displayMessage(e.toString());
     }
   }
@@ -243,15 +264,16 @@ class _HomePageContentState extends State<HomePageContent> {
             const Spacer(flex: 10),
             _URLPicker(
                 apiURL: _apiURL,
-                areButtonsDisabled: _areButtonsDisabled,
-                setApiURL: _setApiURL,
-                setDisableButtons: _setDisableButtons),
+                controller: _controller,
+                validationError: _validationError),
             const Spacer(flex: 20),
             LoadingButton(
-              onPressed: _didUpdate
+              onPressed: _updateDisabled
                   ? null
                   : () async {
-                      await _updateWidget();
+                      if (await _checkApiUrl(_controller.text)) {
+                        await _updateWidget();
+                      }
                     },
               text: 'Update widget',
               style: ElevatedButton.styleFrom(
@@ -363,47 +385,21 @@ class _URLPicker extends StatefulWidget {
   const _URLPicker(
       {super.key,
       required String? apiURL,
-      required bool areButtonsDisabled,
-      required void Function(String) setApiURL,
-      required void Function(bool) setDisableButtons})
-      : _setDisableButtons = setDisableButtons,
-        _setApiURL = setApiURL,
-        _apiURL = apiURL,
-        _areButtonsDisabled = areButtonsDisabled;
+      required TextEditingController controller,
+      required String? validationError})
+      :_apiURL = apiURL,
+      _controller = controller,
+      _validationError = validationError;
 
   final String? _apiURL;
-  final bool _areButtonsDisabled;
-  final Function(String) _setApiURL;
-  final Function(bool) _setDisableButtons;
+  final TextEditingController _controller;
+  final String? _validationError;
 
   @override
   State<_URLPicker> createState() => _URLPickerState();
 }
 
 class _URLPickerState extends State<_URLPicker> {
-  final TextEditingController _controller = TextEditingController();
-  String? _validationError;
-
-  Future<void> _checkApiUrl(apiUrl) async {
-    String? error;
-    try {
-      error = await checkApiUrl(apiUrl);
-    } catch (e) {
-      error = e.toString();
-    }
-
-    setState(() {
-      _validationError = error;
-    });
-
-    if (error == null) {
-      // Successfully validated
-
-      widget._setApiURL(apiUrl);
-      _controller.clear();
-      FocusManager.instance.primaryFocus?.unfocus();
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -431,36 +427,21 @@ class _URLPickerState extends State<_URLPicker> {
           ),
         ),
         const SizedBox(height: 8),
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: TextField(
-                  controller: _controller,
-                  decoration: InputDecoration(
-                    border: const UnderlineInputBorder(),
-                    labelText: 'Google Drive URL',
-                    hintText:
-                        'https://drive.google.com/drive/folders/[a-zA-Z0-9_-]+',
-                    hintStyle: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withOpacity(0.25)),
-                    errorText: _validationError,
-                  ),
-                  style: const TextStyle(fontSize: 12)),
+        TextField(
+            controller: widget._controller,
+            decoration: InputDecoration(
+              border: const UnderlineInputBorder(),
+              labelText: 'Google Drive URL',
+              hintText: 'https://drive.google.com/drive/folders/[a-zA-Z0-9_-]+',
+              hintStyle: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withOpacity(0.25)),
+              errorText: widget._validationError,
             ),
-            LoadingButton(
-              onPressed: () async {
-                await _checkApiUrl(_controller.text);
-              },
-              text: 'Check',
-              areButtonsDisabled: widget._areButtonsDisabled,
-              setDisableButtons: widget._setDisableButtons,
-            ),
-          ],
-        ),
+            style: const TextStyle(fontSize: 12)),
       ],
     );
   }
