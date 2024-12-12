@@ -26,10 +26,10 @@ String getDriveFolderId(String apiUrl) {
   return folderId;
 }
 
-Future<String?> checkApiUrl(String apiUrl) async {
+Future<void> checkApiUrl(String apiUrl) async {
   if (!driveFolderRegex.hasMatch(apiUrl)) {
     // Invalid URL format
-    return 'Invalid Google Drive folder URL';
+    throw 'Invalid Google Drive folder URL';
   }
 
   final String folderId;
@@ -41,10 +41,8 @@ Future<String?> checkApiUrl(String apiUrl) async {
     await fetch(
         'https://www.googleapis.com/drive/v3/files?q="$folderId"+in+parents&key=$driveApiKey');
   } catch (e) {
-    return 'The folder is not public or accessible';
+    throw 'The folder is not public or accessible';
   }
-
-  return null;
 }
 
 Future<List<Map<String, String>>> getAllPhotos(String apiUrl) async {
