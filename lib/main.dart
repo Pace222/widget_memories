@@ -114,9 +114,7 @@ class _HomePageContentState extends State<HomePageContent> {
   Future<void> initApiURL() async {
     final apiURL = await storage.getString('apiURL');
     if (apiURL != null) {
-      setState(() {
         _setApiURL(apiURL);
-      });
     }
   }
 
