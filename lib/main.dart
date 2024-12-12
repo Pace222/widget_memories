@@ -165,7 +165,7 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   void _clearStorage() {
-    storage.clear();
+    storage.clear(allowList: {'apiURL', 'blacklist'});
   }
 
   Future<bool> _setHomeWidget(File? file) async {
