@@ -59,7 +59,7 @@ Map<String, String>? _checkDate(
 
 void _deterministicShuffle(String seedStr, List list) {
   final seedInt = int.parse(
-      sha256.convert(utf8.encode(seedStr)).toString().substring(0, 16),
+      sha256.convert(utf8.encode(seedStr)).toString().substring(0, 15),
       radix: 16);
   list.shuffle(Random(seedInt));
 }
