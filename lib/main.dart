@@ -35,7 +35,7 @@ void backgroundCallback() {
       }
 
       try {
-        updateHomeWidget(SharedPreferencesAsync(), apiURL, blacklist);
+        await updateHomeWidget(SharedPreferencesAsync(), apiURL, blacklist);
       } catch (e) {
         return Future.value(false);
       }
@@ -196,20 +196,6 @@ class _HomePageContentState extends State<HomePageContent> {
 
   void _clearStorage() {
     storage.clear(allowList: {'apiURL', 'blacklist'});
-  }
-
-  Future<bool> _setHomeWidget(File? file) async {
-    try {
-      await setHomeWidget(file);
-
-      _displayMessage('Widget updated successfully', isError: false);
-      _setImageFile(file);
-
-      return true;
-    } catch (e) {
-      _displayMessage(e.toString());
-      return false;
-    }
   }
 
   void _successfulUpdate(File? file, String message) {
