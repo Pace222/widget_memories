@@ -226,6 +226,7 @@ class _HomePageContentState extends State<HomePageContent> {
       _clearStorage();
       setState(() {
         _apiURL = null;
+        _updateDisabled = _controller.text.isEmpty;
       });
     } catch (e) {
       _displayMessage(e.toString());
