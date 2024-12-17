@@ -373,7 +373,7 @@ class _URLPicker extends StatefulWidget {
       required String? apiURL,
       required TextEditingController controller,
       required String? validationError})
-      :_apiURL = apiURL,
+      : _apiURL = apiURL,
       _controller = controller,
       _validationError = validationError;
 
@@ -386,7 +386,6 @@ class _URLPicker extends StatefulWidget {
 }
 
 class _URLPickerState extends State<_URLPicker> {
-
   @override
   Widget build(BuildContext context) {
     return Column(
