@@ -3,7 +3,9 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:home_widget/home_widget.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,35 +15,51 @@ import 'package:workmanager/workmanager.dart';
 
 import 'drive.dart';
 
-const String dailyTaskKey = 'dailyUpdate';
 const int updateTime = 2; // 2 AM
+
+const String androidDailyTaskKey = 'dailyUpdate';
+const String iOSMethodChannel = 'com.example/widget';
+const String iOSCallMethod = 'updateWidget';
 
 const String filename = 'todaysPhoto.png';
 
+const String iOSGroupId = 'group.widget_memories_group';
 const String iOSWidgetName = 'PhotoWidget';
 const String androidWidgetName = 'PhotoWidget';
 
+Future<bool> crossPlatformUpdateWidget() async {
+  final storage = SharedPreferencesAsync();
+  final apiURL = await storage.getString('apiURL');
+  final blacklist = await storage.getStringList('blacklist');
+  if (apiURL == null || blacklist == null) {
+    // Retry next day
+    return false;
+  }
+
+  try {
+    await updateHomeWidget(storage, apiURL, blacklist);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 @pragma(
     'vm:entry-point') // Mandatory if the App is obfuscated or using Flutter 3.1+
-void backgroundCallback() {
+void androidBackgroundCallback() {
   Workmanager().executeTask((task, inputData) async {
-    if (task == dailyTaskKey) {
-      final storage = SharedPreferencesAsync();
-      final apiURL = await storage.getString('apiURL');
-      final blacklist = await storage.getStringList('blacklist');
-      if (apiURL == null || blacklist == null) {
-        // Retry next day
-        return Future.value(true);
-      }
-
-      try {
-        await updateHomeWidget(SharedPreferencesAsync(), apiURL, blacklist);
-      } catch (e) {
-        return Future.value(false);
-      }
+    if (task == androidDailyTaskKey) {
+      return crossPlatformUpdateWidget();
     }
-    return Future.value(true);
+    return true;
   });
+}
+
+Future<bool> iOSBackgroundCallback(call) async {
+  if (call.method == iOSCallMethod) {
+    return crossPlatformUpdateWidget();
+  }
+  return true;
 }
 
 int _calculateInitialDelay() {
@@ -55,18 +73,27 @@ int _calculateInitialDelay() {
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  Workmanager().initialize(
-      backgroundCallback, // The top level function, aka callbackDispatcher
-      isInDebugMode:
-          false // If enabled it will post a notification whenever the task is running. Handy for debugging tasks
-      );
-  Workmanager().registerPeriodicTask(
-    dailyTaskKey, // Unique identifier for the task
-    dailyTaskKey,
-    frequency: const Duration(hours: 24), // Run every 24 hours
-    initialDelay: Duration(
-        seconds: _calculateInitialDelay()), // Adjust to start at chosen time
-  );
+  if (Platform.isAndroid) {
+    Workmanager().initialize(
+        androidBackgroundCallback, // The top level function, aka callbackDispatcher
+        isInDebugMode:
+            false // If enabled it will post a notification whenever the task is running. Handy for debugging tasks
+        );
+
+    Workmanager().registerPeriodicTask(
+      androidDailyTaskKey, // Unique identifier for the task
+      androidDailyTaskKey,
+      frequency: const Duration(hours: 24), // Run every 24 hours
+      initialDelay: Duration(
+          seconds: _calculateInitialDelay()), // Adjust to start at chosen time
+    );
+  } else if (Platform.isIOS) {
+    const MethodChannel channel = MethodChannel(iOSMethodChannel);
+    channel.setMethodCallHandler(iOSBackgroundCallback);
+
+    HomeWidget.setAppGroupId(iOSGroupId);
+  }
+
   runApp(const App());
 }
 
@@ -375,8 +402,8 @@ class _URLPicker extends StatefulWidget {
       required TextEditingController controller,
       required String? validationError})
       : _apiURL = apiURL,
-      _controller = controller,
-      _validationError = validationError;
+        _controller = controller,
+        _validationError = validationError;
 
   final String? _apiURL;
   final TextEditingController _controller;
