@@ -32,7 +32,7 @@ Future<File> fetchFindDownload(String apiURL, List<String> blacklist) async {
   final imageBytes = await downloadPhoto(todaysPhoto['id']!);
 
   // Save the file edited with the photo's date
-  final directory = await getApplicationDocumentsDirectory();
+  final directory = await getApplicationSupportDirectory();
   final file = await saveImageWithText(
       imageBytes,
       DateFormat('dd/MM/yyyy')
