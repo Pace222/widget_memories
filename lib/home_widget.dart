@@ -42,16 +42,17 @@ Future<File> fetchFindDownload(String apiURL, List<String> blacklist) async {
   return file;
 }
 
-Future<File> updateHomeWidget(SharedPreferencesAsync storage, String apiURL, List<String> blacklist) async {
-    File file = await fetchFindDownload(apiURL, blacklist);
-    
-    await setHomeWidget(file);
+Future<File> updateHomeWidget(SharedPreferencesAsync storage, String apiURL,
+    List<String> blacklist) async {
+  File file = await fetchFindDownload(apiURL, blacklist);
 
-    // Save the new API URL
-    storage.setString('apiURL', apiURL);
-  
-    // Save the new blacklist
-    storage.setStringList('blacklist', blacklist);
+  await setHomeWidget(file);
 
-    return file;
+  // Save the new API URL
+  storage.setString('apiURL', apiURL);
+
+  // Save the new blacklist
+  storage.setStringList('blacklist', blacklist);
+
+  return file;
 }
