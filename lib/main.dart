@@ -285,11 +285,8 @@ class _HomePageContentState extends State<HomePageContent> with WidgetsBindingOb
 
   @override
   Widget build(BuildContext context) {
-    // Use MediaQuery to get the available height minus the keyboard
-    final availableHeight = MediaQuery.of(context).size.height -
-        MediaQuery.of(context).viewInsets.bottom; // Accounts for the keyboard
-
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
@@ -314,7 +311,7 @@ class _HomePageContentState extends State<HomePageContent> with WidgetsBindingOb
                     },
               text: 'Update widget',
               style: ElevatedButton.styleFrom(
-                minimumSize: Size(200, availableHeight * 0.12),
+                minimumSize: Size(200, 100),
               ),
               areButtonsDisabled: _areButtonsDisabled,
               setDisableButtons: _setDisableButtons,
@@ -326,7 +323,7 @@ class _HomePageContentState extends State<HomePageContent> with WidgetsBindingOb
               },
               text: 'Clear widget',
               style: ElevatedButton.styleFrom(
-                minimumSize: Size(100, availableHeight * 0.06),
+                minimumSize: Size(100, 50),
                 foregroundColor: Theme.of(context).colorScheme.onError,
                 backgroundColor: Theme.of(context).colorScheme.error,
               ),
