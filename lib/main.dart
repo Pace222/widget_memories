@@ -71,8 +71,10 @@ int _calculateInitialDelay() {
   return targetTime.difference(now).inSeconds;
 }
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final storage = SharedPreferencesAsync();
+  if (!(await storage.getBool('isTaskScheduled') ?? false)) {
   if (Platform.isAndroid) {
     Workmanager().initialize(
         androidBackgroundCallback, // The top level function, aka callbackDispatcher
@@ -90,10 +92,11 @@ void main() {
   } else if (Platform.isIOS) {
     const MethodChannel channel = MethodChannel(iOSMethodChannel);
     channel.setMethodCallHandler(iOSBackgroundCallback);
-
-    HomeWidget.setAppGroupId(iOSGroupId);
+    }
+    storage.setBool('isTaskScheduled', true);
   }
 
+  HomeWidget.setAppGroupId(iOSGroupId);
   runApp(const App());
 }
 
