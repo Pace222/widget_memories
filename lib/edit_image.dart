@@ -7,8 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 final finalWidth = Platform.isAndroid ? 1080 : 720;
 
-Future<File> saveImageWithText(
-    Uint8List imageBytes, String text, String filename) async {
+Future<Uint8List> imageWithText(Uint8List imageBytes, String text) async {
   // Reduce the resolution
   final resizedBytes = await FlutterImageCompress.compressWithList(
     imageBytes,
@@ -60,9 +59,5 @@ Future<File> saveImageWithText(
   final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
   final pngBytes = byteData!.buffer.asUint8List();
 
-  // Save the image to the file
-  final file = File(filename);
-  await file.writeAsBytes(pngBytes);
-
-  return file;
+  return pngBytes;
 }
