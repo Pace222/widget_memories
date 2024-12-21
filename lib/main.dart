@@ -139,7 +139,7 @@ class HomePageContent extends StatefulWidget {
   State<HomePageContent> createState() => _HomePageContentState();
 }
 
-class _HomePageContentState extends State<HomePageContent> {
+class _HomePageContentState extends State<HomePageContent> with WidgetsBindingObserver {
   SharedPreferencesAsync storage = SharedPreferencesAsync();
 
   String? _apiURL;
@@ -151,11 +151,30 @@ class _HomePageContentState extends State<HomePageContent> {
   bool _areButtonsDisabled = false;
 
   @override
+  void didChangeAppLifecycleState(ui.AppLifecycleState state) {
+    switch(state) {
+      case AppLifecycleState.resumed:
+        initImage();
+        break;
+      default:
+        break;
+    }
+  }
+
+  @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
     initApiURL();
     initImage();
     _controller.addListener(_checkNonEmpty);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   Future<void> initApiURL() async {
