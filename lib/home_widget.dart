@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:home_widget/home_widget.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:widget_memories/consensus.dart';
 import 'package:widget_memories/drive.dart';
@@ -32,12 +31,13 @@ Future<File> fetchFindDownload(String apiURL, List<String> blacklist) async {
   final imageBytes = await downloadPhoto(todaysPhoto['id']!);
 
   // Save the file edited with the photo's date
-  final directory = await getApplicationSupportDirectory();
-  final file = await saveImageWithText(
-      imageBytes,
-      DateFormat('dd/MM/yyyy')
-          .format(DateTime.parse(todaysPhoto['createdTime']!)),
-      "${directory.path}/$filename");
+  final file = File(imgFilename);
+  final png = await imageWithText(
+    imageBytes,
+    DateFormat('dd/MM/yyyy')
+        .format(DateTime.parse(todaysPhoto['createdTime']!)),
+  );
+  await file.writeAsBytes(png);
 
   return file;
 }

@@ -21,7 +21,7 @@ const String androidDailyTaskKey = 'dailyUpdate';
 const String iOSMethodChannel = 'com.example/widget';
 const String iOSCallMethod = 'updateWidget';
 
-const String filename = 'todaysPhoto.png';
+late String imgFilename;
 
 const String iOSGroupId = 'group.widget_memories_group';
 const String iOSWidgetName = 'PhotoWidget';
@@ -73,6 +73,8 @@ int _calculateInitialDelay() {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  imgFilename = "${(await getApplicationSupportDirectory()).path}/todaysPhoto.png";
+
   final storage = SharedPreferencesAsync();
   if (!(await storage.getBool('isTaskScheduled') ?? false)) {
   if (Platform.isAndroid) {
@@ -164,8 +166,7 @@ class _HomePageContentState extends State<HomePageContent> {
   }
 
   Future<void> initImage() async {
-    final directory = await getApplicationDocumentsDirectory();
-    final file = File("${directory.path}/$filename");
+    final file = File(imgFilename);
     if (file.existsSync()) {
       _setImageFile(file);
     }

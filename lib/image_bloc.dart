@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:widget_memories/main.dart';
 
 abstract class ImageEvent {}
@@ -32,8 +31,7 @@ class ImageBloc extends Bloc<ImageEvent, ImageState> {
     });
 
     on<ClearImage>((event, emit) async {
-      final directory = await getApplicationDocumentsDirectory();
-      final file = File('${directory.path}/$filename');
+      final file = File(imgFilename);
       if (await file.exists()) {
         await file.delete();
       }
