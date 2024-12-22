@@ -8,6 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:path_provider_foundation/path_provider_foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:widget_memories/home_widget.dart';
 import 'package:widget_memories/image_bloc.dart';
@@ -73,7 +74,10 @@ int _calculateInitialDelay() {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  imgFilename = "${(await getApplicationSupportDirectory()).path}/todaysPhoto.png";
+  final directory = Platform.isAndroid
+      ? (await getApplicationDocumentsDirectory()).path
+      : await PathProviderFoundation().getContainerPath(appGroupIdentifier: iOSGroupId);
+  imgFilename = "${directory}/todaysPhoto.png";
 
   final storage = SharedPreferencesAsync();
   if (!(await storage.getBool('isTaskScheduled') ?? false)) {
