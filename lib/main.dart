@@ -143,7 +143,8 @@ class HomePageContent extends StatefulWidget {
   State<HomePageContent> createState() => _HomePageContentState();
 }
 
-class _HomePageContentState extends State<HomePageContent> with WidgetsBindingObserver {
+class _HomePageContentState extends State<HomePageContent>
+    with WidgetsBindingObserver {
   SharedPreferencesAsync storage = SharedPreferencesAsync();
 
   String? _apiURL;
@@ -156,7 +157,7 @@ class _HomePageContentState extends State<HomePageContent> with WidgetsBindingOb
 
   @override
   void didChangeAppLifecycleState(ui.AppLifecycleState state) {
-    switch(state) {
+    switch (state) {
       case AppLifecycleState.resumed:
         initImage();
         break;
@@ -227,7 +228,7 @@ class _HomePageContentState extends State<HomePageContent> with WidgetsBindingOb
         _validationError = null;
       });
       _controller.clear();
-      FocusManager.instance.primaryFocus?.unfocus();
+
       return true;
     } catch (e) {
       setState(() {
@@ -295,52 +296,110 @@ class _HomePageContentState extends State<HomePageContent> with WidgetsBindingOb
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: <Widget>[
-            const Spacer(flex: 10),
-            _URLPicker(
-                apiURL: _apiURL,
-                controller: _controller,
-                validationError: _validationError),
-            const Spacer(flex: 20),
-            LoadingButton(
-              onPressed: _updateDisabled
-                  ? null
-                  : () async {
-                      if (await _checkApiUrl(_controller.text)) {
-                        await _updateWidget();
-                      }
-                    },
-              text: 'Update widget',
-              style: ElevatedButton.styleFrom(
-                minimumSize: Size(200, 100),
-              ),
-              areButtonsDisabled: _areButtonsDisabled,
-              setDisableButtons: _setDisableButtons,
+      body: LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: constraints.maxHeight,
             ),
-            const Spacer(flex: 5),
-            LoadingButton(
-              onPressed: () async {
-                await _clearWidget();
-              },
-              text: 'Clear widget',
-              style: ElevatedButton.styleFrom(
-                minimumSize: Size(100, 50),
-                foregroundColor: Theme.of(context).colorScheme.onError,
-                backgroundColor: Theme.of(context).colorScheme.error,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: IntrinsicHeight(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    _URLPicker(
+                        apiURL: _apiURL,
+                        controller: _controller,
+                        validationError: _validationError),
+                    const SizedBox(height: 4),
+                    const Spacer(flex: 1),
+                    Flexible(
+                      flex: 4,
+                      child: SizedBox.expand(
+                        child: Column(
+                          children: <Widget>[
+                            Expanded(
+                              child: LoadingButton(
+                                onPressed: _updateDisabled
+                                    ? null
+                                    : () async {
+                                        FocusManager.instance.primaryFocus
+                                            ?.unfocus();
+                                        if (await _checkApiUrl(
+                                            _controller.text)) {
+                                          await _updateWidget();
+                                        }
+                                      },
+                                text: 'Update widget',
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8.0,
+                                    horizontal: 64.0,
+                                  ),
+                                ),
+                                areButtonsDisabled: _areButtonsDisabled,
+                                setDisableButtons: _setDisableButtons,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Spacer(flex: 1),
+                    Flexible(
+                      flex: 2,
+                      child: SizedBox.expand(
+                        child: Column(children: <Widget>[
+                          Expanded(
+                            child: LoadingButton(
+                              onPressed: () async {
+                                FocusManager.instance.primaryFocus?.unfocus();
+                                await _clearWidget();
+                              },
+                              text: 'Clear widget',
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8.0,
+                                  horizontal: 32.0,
+                                ),
+                                foregroundColor:
+                                    Theme.of(context).colorScheme.onError,
+                                backgroundColor:
+                                    Theme.of(context).colorScheme.error,
+                              ),
+                              animationColor:
+                                  Theme.of(context).colorScheme.onError,
+                              areButtonsDisabled: _areButtonsDisabled,
+                              setDisableButtons: _setDisableButtons,
+                            ),
+                          ),
+                        ]),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Spacer(flex: 1),
+                    Column(
+                      children: [
+                        Text(
+                          'Current Picture:',
+                          style: Theme.of(context).textTheme.labelLarge,
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                            height: constraints.maxHeight * 0.45,
+                            child: FittedBox(child: const _ImageDisplay())),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              animationColor: Theme.of(context).colorScheme.onError,
-              areButtonsDisabled: _areButtonsDisabled,
-              setDisableButtons: _setDisableButtons,
             ),
-            const Spacer(flex: 20),
-            const _ImageDisplay(),
-            const Spacer(flex: 10),
-          ],
-        ),
-      ),
+          ),
+        );
+      }),
     );
   }
 }
@@ -491,42 +550,18 @@ class _ImageDisplay extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<ImageBloc, ImageState>(builder: (context, state) {
       if (state is ImageLoaded) {
-        return Column(
-          children: [
-            Text(
-              'Current Picture:',
-              style: Theme.of(context).textTheme.labelLarge,
-            ),
-            const SizedBox(height: 8),
-            Image.memory(
-              state.imageFile.readAsBytesSync(),
-              width: 200,
-              height: 200,
-            )
-          ],
+        return Image.memory(
+          state.imageFile.readAsBytesSync(),
         );
       } else {
-        return Column(
-          children: [
-            Text(
-              'Current Picture:',
-              style: Theme.of(context).textTheme.labelLarge,
-            ),
-            const SizedBox(height: 8),
-            Container(
-              decoration: BoxDecoration(
-                border: Border.all(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withOpacity(0.5)),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              width: 200,
-              height: 200,
-              child: const Center(child: Text('No image selected')),
-            ),
-          ],
+        return Container(
+          decoration: BoxDecoration(
+            border: Border.all(
+                color:
+                    Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: const Center(child: Text('No image selected')),
         );
       }
     });
