@@ -556,6 +556,8 @@ class _ImageDisplay extends StatelessWidget {
         );
       } else {
         return Container(
+          width: 180,
+          height: 320,
           decoration: BoxDecoration(
             border: Border.all(
                 color:
