@@ -13,6 +13,7 @@ android {
     namespace = "com.example.widget_memories"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
+    compileSdkVersion rootProject.ext.compileSdkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
@@ -32,6 +33,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        targetSdkVersion rootProject.ext.targetSdkVersion
     }
 
     buildTypes {

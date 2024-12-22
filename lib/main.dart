@@ -2,8 +2,8 @@ import 'dart:ui' as ui;
 import 'dart:io';
 import 'dart:math';
 
+import 'package:background_fetch/background_fetch.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
@@ -12,15 +12,12 @@ import 'package:path_provider_foundation/path_provider_foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:widget_memories/home_widget.dart';
 import 'package:widget_memories/image_bloc.dart';
-import 'package:workmanager/workmanager.dart';
 
 import 'drive.dart';
 
 const int updateTime = 2; // 2 AM
 
-const String androidDailyTaskKey = 'dailyUpdate';
-const String iOSMethodChannel = 'com.example/widget';
-const String iOSCallMethod = 'updateWidget';
+const String backgroundTaskId = 'com.transistorsoft.updateDaily';
 
 late String imgFilename;
 
@@ -28,7 +25,7 @@ const String iOSGroupId = 'group.widget_memories_group';
 const String iOSWidgetName = 'PhotoWidget';
 const String androidWidgetName = 'PhotoWidget';
 
-Future<bool> crossPlatformUpdateWidget() async {
+Future<bool> doUpdateWidget() async {
   final storage = SharedPreferencesAsync();
   final apiURL = await storage.getString('apiURL');
   final blacklist = await storage.getStringList('blacklist');
@@ -45,31 +42,44 @@ Future<bool> crossPlatformUpdateWidget() async {
   }
 }
 
-@pragma(
-    'vm:entry-point') // Mandatory if the App is obfuscated or using Flutter 3.1+
-void androidBackgroundCallback() {
-  Workmanager().executeTask((task, inputData) async {
-    if (task == androidDailyTaskKey) {
-      return crossPlatformUpdateWidget();
-    }
-    return true;
-  });
-}
+Future<void> configureBackgroundTasks() async {
+  await BackgroundFetch.configure(
+      BackgroundFetchConfig(
+        minimumFetchInterval: 60, // 24 hours
+        stopOnTerminate: false,
+        enableHeadless: true,
+        requiresBatteryNotLow: false,
+        requiresCharging: false,
+        requiresStorageNotLow: false,
+        requiresDeviceIdle: false,
+        requiredNetworkType: NetworkType.NONE,
+      ), (String taskId) async {
+    // This is the fetch-event callback.
 
-Future<bool> iOSBackgroundCallback(call) async {
-  if (call.method == iOSCallMethod) {
-    return crossPlatformUpdateWidget();
-  }
-  return true;
+    // Use a switch statement to route task-handling.
+    switch (taskId) {
+      case backgroundTaskId:
+        await doUpdateWidget();
+        break;
+      default:
+        break;
+    }
+    // Finish, providing received taskId.
+    BackgroundFetch.finish(taskId);
+  }, (String taskId) async {
+    // <-- Event timeout callback
+    // This task has exceeded its allowed running-time.  You must stop what you're doing and immediately .finish(taskId)
+    BackgroundFetch.finish(taskId);
+  });
 }
 
 int _calculateInitialDelay() {
   final now = DateTime.now();
-  final targetTime = DateTime(now.year, now.month, now.day, updateTime, 0, 0);
+  final targetTime = DateTime(now.year, now.month, now.day, 8, 0, 0);
   if (now.isAfter(targetTime)) {
     targetTime.add(const Duration(days: 1));
   }
-  return targetTime.difference(now).inSeconds;
+  return targetTime.difference(now).inMilliseconds;
 }
 
 void main() async {
@@ -79,31 +89,6 @@ void main() async {
       : await PathProviderFoundation()
           .getContainerPath(appGroupIdentifier: iOSGroupId);
   imgFilename = "${directory}/todaysPhoto.png";
-
-  final storage = SharedPreferencesAsync();
-  if (!(await storage.getBool('isTaskScheduled') ?? false)) {
-    if (Platform.isAndroid) {
-      Workmanager().initialize(
-          androidBackgroundCallback, // The top level function, aka callbackDispatcher
-          isInDebugMode:
-              false // If enabled it will post a notification whenever the task is running. Handy for debugging tasks
-          );
-
-      Workmanager().registerPeriodicTask(
-        androidDailyTaskKey, // Unique identifier for the task
-        androidDailyTaskKey,
-        frequency: const Duration(hours: 24), // Run every 24 hours
-        initialDelay: Duration(
-            seconds: _calculateInitialDelay()), // Adjust to start at chosen time
-      );
-    } else if (Platform.isIOS) {
-      const MethodChannel channel = MethodChannel(iOSMethodChannel);
-      channel.setMethodCallHandler(iOSBackgroundCallback);
-    }
-    storage.setBool('isTaskScheduled', true);
-  }
-
-  HomeWidget.setAppGroupId(iOSGroupId);
   runApp(const App());
 }
 
@@ -172,6 +157,10 @@ class _HomePageContentState extends State<HomePageContent>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
+    HomeWidget.setAppGroupId(iOSGroupId);
+
+    checkInitBackgroundTasks();
+
     initApiURL();
     initImage();
     _controller.addListener(_checkNonEmpty);
@@ -181,6 +170,23 @@ class _HomePageContentState extends State<HomePageContent>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  Future<void> checkInitBackgroundTasks() async {
+    final isTaskScheduled = await storage.getBool('isTaskScheduled') ?? false;
+    if (isTaskScheduled) {
+      return;
+    }
+
+    await configureBackgroundTasks();
+
+    await BackgroundFetch.scheduleTask(TaskConfig(
+      taskId: backgroundTaskId,
+      delay: _calculateInitialDelay(),
+      periodic: true,
+    ));
+
+    await storage.setBool('isTaskScheduled', true);
   }
 
   Future<void> initApiURL() async {
