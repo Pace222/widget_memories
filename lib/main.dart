@@ -76,28 +76,29 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final directory = Platform.isAndroid
       ? (await getApplicationDocumentsDirectory()).path
-      : await PathProviderFoundation().getContainerPath(appGroupIdentifier: iOSGroupId);
+      : await PathProviderFoundation()
+          .getContainerPath(appGroupIdentifier: iOSGroupId);
   imgFilename = "${directory}/todaysPhoto.png";
 
   final storage = SharedPreferencesAsync();
   if (!(await storage.getBool('isTaskScheduled') ?? false)) {
-  if (Platform.isAndroid) {
-    Workmanager().initialize(
-        androidBackgroundCallback, // The top level function, aka callbackDispatcher
-        isInDebugMode:
-            false // If enabled it will post a notification whenever the task is running. Handy for debugging tasks
-        );
+    if (Platform.isAndroid) {
+      Workmanager().initialize(
+          androidBackgroundCallback, // The top level function, aka callbackDispatcher
+          isInDebugMode:
+              false // If enabled it will post a notification whenever the task is running. Handy for debugging tasks
+          );
 
-    Workmanager().registerPeriodicTask(
-      androidDailyTaskKey, // Unique identifier for the task
-      androidDailyTaskKey,
-      frequency: const Duration(hours: 24), // Run every 24 hours
-      initialDelay: Duration(
-          seconds: _calculateInitialDelay()), // Adjust to start at chosen time
-    );
-  } else if (Platform.isIOS) {
-    const MethodChannel channel = MethodChannel(iOSMethodChannel);
-    channel.setMethodCallHandler(iOSBackgroundCallback);
+      Workmanager().registerPeriodicTask(
+        androidDailyTaskKey, // Unique identifier for the task
+        androidDailyTaskKey,
+        frequency: const Duration(hours: 24), // Run every 24 hours
+        initialDelay: Duration(
+            seconds: _calculateInitialDelay()), // Adjust to start at chosen time
+      );
+    } else if (Platform.isIOS) {
+      const MethodChannel channel = MethodChannel(iOSMethodChannel);
+      channel.setMethodCallHandler(iOSBackgroundCallback);
     }
     storage.setBool('isTaskScheduled', true);
   }
