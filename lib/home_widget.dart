@@ -54,5 +54,8 @@ Future<File> updateHomeWidget(SharedPreferencesAsync storage, String apiURL,
   // Save the new blacklist
   storage.setStringList('blacklist', blacklist);
 
+  // Update last update time
+  storage.setString('lastUpdate', DateFormat('yyyy-MM-dd').format(DateTime.now()));
+
   return file;
 }
