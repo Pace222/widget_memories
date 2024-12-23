@@ -21,7 +21,7 @@ Future<void> setHomeWidget(File? file) async {
   }
 }
 
-Future<File> fetchFindDownload(String apiURL, List<String> blacklist) async {
+Future<File> fetchFindDownloadSave(String apiURL, List<String> blacklist) async {
   final allPhotos = await getAllPhotos(apiURL);
 
   // "Randomly" select the picture
@@ -42,9 +42,19 @@ Future<File> fetchFindDownload(String apiURL, List<String> blacklist) async {
   return file;
 }
 
-Future<File> updateHomeWidget(SharedPreferencesAsync storage, String apiURL,
-    List<String> blacklist) async {
-  File file = await fetchFindDownload(apiURL, blacklist);
+Future<File?> updateHomeWidget(SharedPreferencesAsync storage, String apiURL,
+    String lastUpdate, List<String> blacklist) async {
+  
+  int dateStrCompareToNow(String date1Str) {
+    final nowStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    return date1Str.compareTo(nowStr);
+  }
+
+  if (lastUpdate.isNotEmpty && dateStrCompareToNow(lastUpdate) >= 0) {
+    return null;
+  }
+
+  File file = await fetchFindDownloadSave(apiURL, blacklist);
 
   await setHomeWidget(file);
 
@@ -55,7 +65,8 @@ Future<File> updateHomeWidget(SharedPreferencesAsync storage, String apiURL,
   storage.setStringList('blacklist', blacklist);
 
   // Update last update time
-  storage.setString('lastUpdate', DateFormat('yyyy-MM-dd').format(DateTime.now()));
+  storage.setString(
+      'lastUpdate', DateFormat('yyyy-MM-dd').format(DateTime.now()));
 
   return file;
 }
