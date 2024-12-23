@@ -325,7 +325,9 @@ class _HomePageContentState extends State<HomePageContent>
       _successfulUpdate(null, 'Widget successfully cleared');
 
       _clearStorage();
-      await Workmanager().cancelAll();
+      if (Platform.isAndroid) {
+        await Workmanager().cancelAll();
+      }
       setState(() {
         _apiURL = null;
         _updateDisabled = _controller.text.isEmpty;
