@@ -28,11 +28,6 @@ const String iOSGroupId = 'group.widget_memories_group';
 const String iOSWidgetName = 'PhotoWidget';
 const String androidWidgetName = 'PhotoWidget';
 
-int dateStrCompareToNow(String date1Str) {
-  final nowStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-  return date1Str.compareTo(nowStr);
-}
-
 // Mandatory if the App is obfuscated or using Flutter 3.1+
 @pragma('vm:entry-point')
 void callbackDispatcher() {
@@ -42,16 +37,13 @@ void callbackDispatcher() {
       final apiURL = await storage.getString('apiURL');
       final blacklist = await storage.getStringList('blacklist');
       final lastUpdate = await storage.getString('lastUpdate');
-      if (apiURL == null ||
-          blacklist == null ||
-          lastUpdate == null ||
-          dateStrCompareToNow(lastUpdate) >= 0) {
+      if (apiURL == null || blacklist == null || lastUpdate == null) {
         // Retry next day
         return false;
       }
 
       try {
-        await updateHomeWidget(storage, apiURL, blacklist);
+        await updateHomeWidget(storage, apiURL, lastUpdate, blacklist);
         return true;
       } catch (e) {
         return false;
@@ -116,19 +108,21 @@ class _HomePageContentState extends State<HomePageContent>
   SharedPreferencesAsync storage = SharedPreferencesAsync();
 
   String? _apiURL;
-  final TextEditingController _controller = TextEditingController();
+  late TextEditingController _controller = TextEditingController()
+    ..addListener(() {
+      setState(() {}); // Refresh the UI
+    });
   String? _validationError;
   bool _ready = false;
 
   bool _areButtonsDisabled = false;
-  bool _updateDisabled = true;
   bool _launchTaskDisabled = true;
 
   @override
   void didChangeAppLifecycleState(ui.AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.resumed:
-        initImage();
+        initLayout();
         break;
       default:
         break;
@@ -188,27 +182,12 @@ class _HomePageContentState extends State<HomePageContent>
 
     initWorkManager();
     initLayout();
-    _controller.addListener(_checkNonEmpty);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
-  }
-
-  Future<void> initApiURL() async {
-    final apiURL = await storage.getString('apiURL');
-    setState(() {
-      _apiURL = apiURL;
-    });
-  }
-
-  Future<void> initImage() async {
-    final file = File(imgFilename);
-    if (file.existsSync()) {
-      _setImageFile(file);
-    }
   }
 
   Future<void> initLayout() async {
@@ -253,24 +232,15 @@ class _HomePageContentState extends State<HomePageContent>
     });
   }
 
-  void _checkNonEmpty() {
-    if (!_ready) {
-      setState(() {
-        _updateDisabled = _controller.text.isEmpty;
-      });
-    }
-  }
-
   Future<bool> _checkApiUrl(String apiURL) async {
     try {
       await checkApiUrl(apiURL);
 
       // Valid URL
+      _controller.clear();
       setState(() {
-        _apiURL = apiURL;
         _validationError = null;
       });
-      _controller.clear();
 
       return true;
     } catch (e) {
@@ -296,19 +266,30 @@ class _HomePageContentState extends State<HomePageContent>
     storage.clear(allowList: {'apiURL', 'blacklist', 'lastUpdate'});
   }
 
-  void _successfulUpdate(File? file, String message) {
-    _displayMessage(message, isError: false);
-    _setImageFile(file);
-  }
-
-  Future<void> _updateWidget() async {
+  Future<void> _updateWidget(String newApiURL) async {
     try {
-      File file = await updateHomeWidget(storage, _apiURL!, []);
+      final lastUpdate = await storage.getString('lastUpdate') ?? '';
+      final blacklist = await storage.getStringList('blacklist') ?? [];
+      File? file = newApiURL.isEmpty
+          // Update existing
+          ? await updateHomeWidget(storage, _apiURL!, lastUpdate, blacklist)
+          // Create new
+          : await updateHomeWidget(storage, newApiURL, '', []);
+      if (file == null) {
+        _displayMessage(
+            "The picture has already been updated earlier today.",
+            isError: true);
+      } else {
+        _displayMessage('Widget successfully updated', isError: false);
+        _setImageFile(file);
+      }
 
-      _successfulUpdate(file, 'Widget successfully updated');
-
+      if (newApiURL.isNotEmpty) {
+        setState(() {
+          _apiURL = newApiURL;
+        });
+      }
       setState(() {
-        _updateDisabled = true;
         _ready = true;
       });
     } catch (e) {
@@ -320,13 +301,13 @@ class _HomePageContentState extends State<HomePageContent>
     try {
       await setHomeWidget(null);
 
-      _successfulUpdate(null, 'Widget successfully cleared');
+      _displayMessage('Widget successfully cleared', isError: false);
+      _setImageFile(null);
 
       _clearStorage();
       await Workmanager().cancelAll();
       setState(() {
         _apiURL = null;
-        _updateDisabled = _controller.text.isEmpty;
         _ready = false;
       });
     } catch (e) {
@@ -373,14 +354,16 @@ class _HomePageContentState extends State<HomePageContent>
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   LoadingButton(
-                                    onPressed: _updateDisabled
+                                    onPressed: !_ready &&
+                                            _controller.text.trim().isEmpty
                                         ? null
                                         : () async {
                                             FocusManager.instance.primaryFocus
                                                 ?.unfocus();
-                                            if (await _checkApiUrl(
-                                                _controller.text)) {
-                                              await _updateWidget();
+                                            final newApiURL =
+                                                _controller.text.trim();
+                                            if (newApiURL.isEmpty || await _checkApiUrl(newApiURL)) {
+                                              await _updateWidget(newApiURL);
                                             }
                                           },
                                     text: 'Update widget',
