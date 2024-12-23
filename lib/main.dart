@@ -186,7 +186,9 @@ class _HomePageContentState extends State<HomePageContent>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    initWorkManager();
+    if (Platform.isAndroid) {
+      initWorkManager();
+    }
     initLayout();
     _controller.addListener(_checkNonEmpty);
   }
