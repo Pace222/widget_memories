@@ -41,7 +41,7 @@ Future<void> checkApiUrl(String apiUrl) async {
     await fetch(
         'https://www.googleapis.com/drive/v3/files?q="$folderId"+in+parents&key=$driveApiKey');
   } catch (e) {
-    throw 'The folder is not public or accessible';
+    throw 'Check your Internet connection. Otherwise, the folder may not be public or accessible';
   }
 }
 
