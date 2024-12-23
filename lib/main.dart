@@ -43,11 +43,9 @@ void callbackDispatcher() {
       final blacklist = await storage.getStringList('blacklist');
       final lastUpdate = await storage.getString('lastUpdate');
       if (apiURL == null ||
-              blacklist ==
-                  null ||
+          blacklist == null ||
           lastUpdate == null ||
-           dateStrCompareToNow(lastUpdate) >= 0
-          ) {
+          dateStrCompareToNow(lastUpdate) >= 0) {
         // Retry next day
         return false;
       }
