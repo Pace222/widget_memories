@@ -3,12 +3,13 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:home_widget/home_widget.dart';
+import 'package:intl/intl.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path_provider_foundation/path_provider_foundation.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:widget_memories/home_widget.dart';
 import 'package:widget_memories/image_bloc.dart';
@@ -16,11 +17,10 @@ import 'package:workmanager/workmanager.dart';
 
 import 'drive.dart';
 
-const int updateTime = 2; // 2 AM
+const int updateTime = 0; // Midnight
 
-const String androidDailyTaskKey = 'dailyUpdate';
-const String iOSMethodChannel = 'com.example/widget';
-const String iOSCallMethod = 'updateWidget';
+const String androidDailyTask = 'updateDaily';
+const String iOSDailyTask = "com.example.widgetMemories.updateDaily";
 
 late String imgFilename;
 
@@ -28,48 +28,39 @@ const String iOSGroupId = 'group.widget_memories_group';
 const String iOSWidgetName = 'PhotoWidget';
 const String androidWidgetName = 'PhotoWidget';
 
-Future<bool> crossPlatformUpdateWidget() async {
-  final storage = SharedPreferencesAsync();
-  final apiURL = await storage.getString('apiURL');
-  final blacklist = await storage.getStringList('blacklist');
-  if (apiURL == null || blacklist == null) {
-    // Retry next day
-    return false;
-  }
-
-  try {
-    await updateHomeWidget(storage, apiURL, blacklist);
-    return true;
-  } catch (e) {
-    return false;
-  }
+int dateStrCompareToNow(String date1Str) {
+  final nowStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+  return date1Str.compareTo(nowStr);
 }
 
-@pragma(
-    'vm:entry-point') // Mandatory if the App is obfuscated or using Flutter 3.1+
-void androidBackgroundCallback() {
+// Mandatory if the App is obfuscated or using Flutter 3.1+
+@pragma('vm:entry-point')
+void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
-    if (task == androidDailyTaskKey) {
-      return crossPlatformUpdateWidget();
+    if (task == androidDailyTask || task == iOSDailyTask) {
+      final storage = SharedPreferencesAsync();
+      final apiURL = await storage.getString('apiURL');
+      final blacklist = await storage.getStringList('blacklist');
+      final lastUpdate = await storage.getString('lastUpdate');
+      if (apiURL == null ||
+              blacklist ==
+                  null ||
+          lastUpdate == null ||
+           dateStrCompareToNow(lastUpdate) >= 0
+          ) {
+        // Retry next day
+        return false;
+      }
+
+      try {
+        await updateHomeWidget(storage, apiURL, blacklist);
+        return true;
+      } catch (e) {
+        return false;
+      }
     }
     return true;
   });
-}
-
-Future<bool> iOSBackgroundCallback(call) async {
-  if (call.method == iOSCallMethod) {
-    return crossPlatformUpdateWidget();
-  }
-  return true;
-}
-
-int _calculateInitialDelay() {
-  final now = DateTime.now();
-  final targetTime = DateTime(now.year, now.month, now.day, updateTime, 0, 0);
-  if (now.isAfter(targetTime)) {
-    targetTime.add(const Duration(days: 1));
-  }
-  return targetTime.difference(now).inSeconds;
 }
 
 void main() async {
@@ -80,30 +71,8 @@ void main() async {
           .getContainerPath(appGroupIdentifier: iOSGroupId);
   imgFilename = "${directory}/todaysPhoto.png";
 
-  final storage = SharedPreferencesAsync();
-  if (!(await storage.getBool('isTaskScheduled') ?? false)) {
-    if (Platform.isAndroid) {
-      Workmanager().initialize(
-          androidBackgroundCallback, // The top level function, aka callbackDispatcher
-          isInDebugMode:
-              false // If enabled it will post a notification whenever the task is running. Handy for debugging tasks
-          );
+  await HomeWidget.setAppGroupId(iOSGroupId);
 
-      Workmanager().registerPeriodicTask(
-        androidDailyTaskKey, // Unique identifier for the task
-        androidDailyTaskKey,
-        frequency: const Duration(hours: 24), // Run every 24 hours
-        initialDelay: Duration(
-            seconds: _calculateInitialDelay()), // Adjust to start at chosen time
-      );
-    } else if (Platform.isIOS) {
-      const MethodChannel channel = MethodChannel(iOSMethodChannel);
-      channel.setMethodCallHandler(iOSBackgroundCallback);
-    }
-    storage.setBool('isTaskScheduled', true);
-  }
-
-  HomeWidget.setAppGroupId(iOSGroupId);
   runApp(const App());
 }
 
@@ -151,10 +120,11 @@ class _HomePageContentState extends State<HomePageContent>
   String? _apiURL;
   final TextEditingController _controller = TextEditingController();
   String? _validationError;
-
-  bool _updateDisabled = true;
+  bool _ready = false;
 
   bool _areButtonsDisabled = false;
+  bool _updateDisabled = true;
+  bool _launchTaskDisabled = true;
 
   @override
   void didChangeAppLifecycleState(ui.AppLifecycleState state) {
@@ -167,13 +137,59 @@ class _HomePageContentState extends State<HomePageContent>
     }
   }
 
+  Future<void> initWorkManager() async {
+    if (Platform.isIOS) {
+      final status = await Permission.backgroundRefresh.status;
+      if (status != PermissionStatus.granted) {
+        _displayMessage(
+            'Background app refresh is disabled, please enable in '
+            'App settings. Status: ${status.name}',
+            isError: true);
+        return;
+      }
+    }
+
+    await Workmanager().initialize(
+      callbackDispatcher,
+      isInDebugMode: true,
+    );
+    setState(() {
+      _launchTaskDisabled = false;
+    });
+  }
+
+  Future<void> launchBackgroundTask() async {
+    final dailyKey = Platform.isAndroid ? androidDailyTask : iOSDailyTask;
+
+    await Workmanager().cancelAll();
+
+    await Workmanager().registerPeriodicTask(
+      dailyKey,
+      dailyKey,
+      frequency: const Duration(
+          hours: 12), // Android: Every 12 hours to be sure, iOS: Every 1 hour
+      initialDelay: Duration(seconds: _calculateInitialDelay()),
+    );
+
+    _displayMessage('Background task scheduled for next night', isError: false);
+  }
+
+  int _calculateInitialDelay() {
+    final now = DateTime.now();
+    var targetTime = DateTime(now.year, now.month, now.day, updateTime, 0, 0);
+    if (now.isAfter(targetTime)) {
+      targetTime = targetTime.add(const Duration(days: 1));
+    }
+    return targetTime.difference(now).inSeconds;
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    initApiURL();
-    initImage();
+    initWorkManager();
+    initLayout();
     _controller.addListener(_checkNonEmpty);
   }
 
@@ -197,6 +213,34 @@ class _HomePageContentState extends State<HomePageContent>
     }
   }
 
+  Future<void> initLayout() async {
+    final apiURL = await storage.getString('apiURL');
+    final file = File(imgFilename);
+
+    if (file.existsSync()) {
+      if (apiURL == null) {
+        _displayMessage('Inconsistent state. You should clear the widget.',
+            isError: true);
+        setState(() {
+          _launchTaskDisabled = true;
+        });
+      }
+      setState(() {
+        _apiURL = apiURL;
+        _ready = true;
+        _setImageFile(file);
+      });
+    } else if (apiURL != null) {
+      _displayMessage('Inconsistent state. You should clear the widget.',
+          isError: true);
+      setState(() {
+        _launchTaskDisabled = true;
+        _apiURL = apiURL;
+        _ready = true;
+      });
+    }
+  }
+
   void _setImageFile(File? file) {
     if (file != null) {
       context.read<ImageBloc>().add(LoadImage(file));
@@ -212,7 +256,7 @@ class _HomePageContentState extends State<HomePageContent>
   }
 
   void _checkNonEmpty() {
-    if (_apiURL == null) {
+    if (!_ready) {
       setState(() {
         _updateDisabled = _controller.text.isEmpty;
       });
@@ -239,7 +283,7 @@ class _HomePageContentState extends State<HomePageContent>
     }
   }
 
-  void _displayMessage(String message, {bool isError = true}) {
+  void _displayMessage(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).removeCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(message),
@@ -251,7 +295,7 @@ class _HomePageContentState extends State<HomePageContent>
   }
 
   void _clearStorage() {
-    storage.clear(allowList: {'apiURL', 'blacklist'});
+    storage.clear(allowList: {'apiURL', 'blacklist', 'lastUpdate'});
   }
 
   void _successfulUpdate(File? file, String message) {
@@ -267,9 +311,10 @@ class _HomePageContentState extends State<HomePageContent>
 
       setState(() {
         _updateDisabled = true;
+        _ready = true;
       });
     } catch (e) {
-      _displayMessage(e.toString());
+      _displayMessage(e.toString(), isError: true);
     }
   }
 
@@ -280,12 +325,14 @@ class _HomePageContentState extends State<HomePageContent>
       _successfulUpdate(null, 'Widget successfully cleared');
 
       _clearStorage();
+      await Workmanager().cancelAll();
       setState(() {
         _apiURL = null;
         _updateDisabled = _controller.text.isEmpty;
+        _ready = false;
       });
     } catch (e) {
-      _displayMessage(e.toString());
+      _displayMessage(e.toString(), isError: true);
     }
   }
 
@@ -315,33 +362,56 @@ class _HomePageContentState extends State<HomePageContent>
                         controller: _controller,
                         validationError: _validationError),
                     const SizedBox(height: 4),
-                    const Spacer(flex: 1),
+                    const Spacer(flex: 2),
                     Flexible(
-                      flex: 4,
+                      flex: 3,
                       child: SizedBox.expand(
                         child: Column(
                           children: <Widget>[
                             Expanded(
-                              child: LoadingButton(
-                                onPressed: _updateDisabled
-                                    ? null
-                                    : () async {
-                                        FocusManager.instance.primaryFocus
-                                            ?.unfocus();
-                                        if (await _checkApiUrl(
-                                            _controller.text)) {
-                                          await _updateWidget();
-                                        }
-                                      },
-                                text: 'Update widget',
-                                style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 8.0,
-                                    horizontal: 64.0,
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceAround,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  LoadingButton(
+                                    onPressed: _updateDisabled
+                                        ? null
+                                        : () async {
+                                            FocusManager.instance.primaryFocus
+                                                ?.unfocus();
+                                            if (await _checkApiUrl(
+                                                _controller.text)) {
+                                              await _updateWidget();
+                                            }
+                                          },
+                                    text: 'Update widget',
+                                    style: ElevatedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 8.0,
+                                        horizontal: 16.0,
+                                      ),
+                                    ),
+                                    areButtonsDisabled: _areButtonsDisabled,
+                                    setDisableButtons: _setDisableButtons,
                                   ),
-                                ),
-                                areButtonsDisabled: _areButtonsDisabled,
-                                setDisableButtons: _setDisableButtons,
+                                  LoadingButton(
+                                    onPressed: _launchTaskDisabled || !_ready
+                                        ? null
+                                        : () async {
+                                            await launchBackgroundTask();
+                                          },
+                                    text: 'To background task',
+                                    style: ElevatedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 8.0,
+                                        horizontal: 16.0,
+                                      ),
+                                    ),
+                                    areButtonsDisabled: _areButtonsDisabled,
+                                    setDisableButtons: _setDisableButtons,
+                                  ),
+                                ],
                               ),
                             ),
                           ],
@@ -356,10 +426,13 @@ class _HomePageContentState extends State<HomePageContent>
                         child: Column(children: <Widget>[
                           Expanded(
                             child: LoadingButton(
-                              onPressed: () async {
-                                FocusManager.instance.primaryFocus?.unfocus();
-                                await _clearWidget();
-                              },
+                              onPressed: !_ready
+                                  ? null
+                                  : () async {
+                                      FocusManager.instance.primaryFocus
+                                          ?.unfocus();
+                                      await _clearWidget();
+                                    },
                               text: 'Clear widget',
                               style: ElevatedButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(
@@ -381,14 +454,14 @@ class _HomePageContentState extends State<HomePageContent>
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Spacer(flex: 1),
+                    const Spacer(flex: 2),
                     Column(
                       children: [
                         Text(
                           'Current Picture:',
                           style: Theme.of(context).textTheme.labelLarge,
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 4),
                         SizedBox(
                             height: constraints.maxHeight * 0.45,
                             child: FittedBox(child: const _ImageDisplay())),
@@ -440,7 +513,10 @@ class _LoadingButtonState extends State<LoadingButton> {
     final Color buttonColor =
         widget.animationColor ?? Theme.of(context).colorScheme.primary;
 
-    final Text textWidget = Text(widget.text);
+    final Text textWidget = Text(
+      widget.text,
+      textAlign: TextAlign.center,
+    );
     final TextPainter textPainter = TextPainter(
       text: TextSpan(
           text: widget.text, style: DefaultTextStyle.of(context).style),
@@ -471,9 +547,17 @@ class _LoadingButtonState extends State<LoadingButton> {
                 },
       style: widget.style,
       child: _isLoading
-          ? LoadingAnimationWidget.waveDots(
-              color: buttonColor,
-              size: widget.animationSize ?? min(textWidth, textHeight))
+          ? ConstrainedBox(
+              constraints: BoxConstraints(
+                minWidth: textWidth,
+                minHeight: textHeight,
+              ),
+              child: Center(
+                child: LoadingAnimationWidget.waveDots(
+                    color: buttonColor,
+                    size: widget.animationSize ?? min(textWidth, textHeight)),
+              ),
+            )
           : textWidget,
     );
   }
@@ -515,8 +599,10 @@ class _URLPickerState extends State<_URLPicker> {
                 text: widget._apiURL ?? 'Not set',
                 style: TextStyle(
                   fontSize: 12,
-                  color:
-                      Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.5),
                   fontWeight: FontWeight.normal,
                 ),
               ),
@@ -535,7 +621,7 @@ class _URLPickerState extends State<_URLPicker> {
                   color: Theme.of(context)
                       .colorScheme
                       .onSurface
-                      .withOpacity(0.25)),
+                      .withValues(alpha: 0.25)),
               errorText: widget._validationError,
             ),
             style: const TextStyle(fontSize: 12)),
@@ -560,8 +646,10 @@ class _ImageDisplay extends StatelessWidget {
           height: 320,
           decoration: BoxDecoration(
             border: Border.all(
-                color:
-                    Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.5)),
             borderRadius: BorderRadius.circular(4),
           ),
           child: const Center(child: Text('No image selected')),
