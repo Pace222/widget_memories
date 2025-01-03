@@ -27,18 +27,28 @@ const String iOSGroupId = 'group.widget_memories_group';
 const String iOSWidgetName = 'PhotoWidget';
 const String androidWidgetName = 'PhotoWidget';
 
+Future<void> setImgFilename() async {
+  final directory = Platform.isAndroid
+      ? (await getApplicationDocumentsDirectory()).path
+      : await PathProviderFoundation()
+          .getContainerPath(appGroupIdentifier: iOSGroupId);
+  imgFilename = "${directory}/todaysPhoto.png";
+}
+
 // Mandatory if the App is obfuscated or using Flutter 3.1+
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     if (task == androidDailyTask || task == iOSDailyTask) {
+      await setImgFilename();
+
       final storage = SharedPreferencesAsync();
       final apiURL = await storage.getString('apiURL');
       final blacklist = await storage.getStringList('blacklist');
       final lastUpdate = await storage.getString('lastUpdate');
       if (apiURL == null || blacklist == null || lastUpdate == null) {
         // Retry next day
-        return false;
+        return true;
       }
 
       try {
@@ -54,11 +64,8 @@ void callbackDispatcher() {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final directory = Platform.isAndroid
-      ? (await getApplicationDocumentsDirectory()).path
-      : await PathProviderFoundation()
-          .getContainerPath(appGroupIdentifier: iOSGroupId);
-  imgFilename = "${directory}/todaysPhoto.png";
+
+  await setImgFilename();
 
   await HomeWidget.setAppGroupId(iOSGroupId);
 
