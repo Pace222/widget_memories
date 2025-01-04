@@ -224,9 +224,7 @@ class _HomePageContentState extends State<HomePageContent>
     WidgetsBinding.instance.addObserver(this);
     windowManager.addListener(this);
 
-    if (Platform.isAndroid) {
-      initWorkManager();
-    }
+    initWorkManager();
     initLayout();
   }
 
@@ -352,9 +350,7 @@ class _HomePageContentState extends State<HomePageContent>
       _setImageFile(null);
 
       _clearStorage();
-      if (Platform.isAndroid) {
-        await Workmanager().cancelAll();
-      }
+      await Workmanager().cancelAll();
       setState(() {
         _apiURL = null;
         _ready = false;
