@@ -12,6 +12,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:widget_memories/home_widget.dart';
 import 'package:widget_memories/image_bloc.dart';
+import 'package:window_manager/window_manager.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'drive.dart';
@@ -62,6 +63,10 @@ void callbackDispatcher() {
   });
 }
 
+bool isDesktop() {
+  return Platform.isLinux || Platform.isMacOS || Platform.isWindows;
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -69,6 +74,30 @@ void main() async {
 
   await HomeWidget.setAppGroupId(iOSGroupId);
 
+  if (isDesktop()) {
+    final storage = SharedPreferencesAsync();
+    final apiURL = await storage.getString('apiURL');
+    final blacklist = await storage.getStringList('blacklist');
+    final lastUpdate = await storage.getString('lastUpdate');
+    if (apiURL != null && blacklist != null && lastUpdate != null) {
+      try {
+        await updateHomeWidget(storage, apiURL, lastUpdate, blacklist);
+      } catch (e) {
+      }
+    }
+
+    await windowManager.ensureInitialized();
+    WindowOptions windowOptions = WindowOptions(
+      size: Size(1080, 1920),
+      center: true,
+      backgroundColor: Colors.transparent,
+      skipTaskbar: true,
+    );
+    windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.show();
+      await windowManager.focus();
+    });
+  }
   runApp(const App());
 }
 
@@ -110,10 +139,10 @@ class HomePageContent extends StatefulWidget {
 }
 
 class _HomePageContentState extends State<HomePageContent>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, WindowListener {
   SharedPreferencesAsync storage = SharedPreferencesAsync();
 
-  int _currentPageIndex = 0;
+  int _currentPageIndex = isDesktop() ? 1 : 0;
 
   String? _apiURL;
   late TextEditingController _controller = TextEditingController()
@@ -135,6 +164,12 @@ class _HomePageContentState extends State<HomePageContent>
       default:
         break;
     }
+  }
+
+  @override
+  void onWindowFocus() {
+    // Make sure to call once.
+    setState(() {});
   }
 
   Future<void> initWorkManager() async {
@@ -187,6 +222,7 @@ class _HomePageContentState extends State<HomePageContent>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    windowManager.addListener(this);
 
     if (Platform.isAndroid) {
       initWorkManager();
@@ -197,6 +233,7 @@ class _HomePageContentState extends State<HomePageContent>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    windowManager.removeListener(this);
     super.dispose();
   }
 
@@ -337,7 +374,21 @@ class _HomePageContentState extends State<HomePageContent>
           title: Text(widget.title),
         ),
         bottomNavigationBar: NavigationBar(
-          onDestinationSelected: (int index) {
+          onDestinationSelected: (int index) async {
+            if (isDesktop() && index == 1) {
+              final state = BlocProvider.of<ImageBloc>(context).state;
+              Size newSize;
+              if (state is ImageLoaded) {
+                final image = await decodeImageFromList(state.imageFile.readAsBytesSync());
+                newSize = Size(image.width.toDouble(), image.height.toDouble());
+              } else {
+                newSize = _ImageDisplay().defaultSize;
+              }
+              final currentSize = windowManager.getSize();
+              // TODO
+              windowManager.setSize(newSize);
+              windowManager.setAsFrameless();
+            }
             setState(() {
               _currentPageIndex = index;
             });
@@ -669,6 +720,8 @@ class _URLPickerState extends State<_URLPicker> {
 class _ImageDisplay extends StatelessWidget {
   const _ImageDisplay({super.key});
 
+  final defaultSize = const Size(180, 320);
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ImageBloc, ImageState>(builder: (context, state) {
@@ -678,8 +731,8 @@ class _ImageDisplay extends StatelessWidget {
         );
       } else {
         return Container(
-          width: 180,
-          height: 320,
+          width: defaultSize.width,
+          height: defaultSize.height,
           decoration: BoxDecoration(
             border: Border.all(
                 color: Theme.of(context)

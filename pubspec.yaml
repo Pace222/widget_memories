@@ -46,6 +46,7 @@ dependencies:
       url: https://github.com/fluttercommunity/flutter_workmanager.git
       ref: b783000
   permission_handler: ^11.3.1
+  window_manager: ^0.4.3
 
 
   # The following adds the Cupertino Icons font to your application.
