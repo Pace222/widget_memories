@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 import 'dart:io';
 import 'dart:math';
 
+import 'package:conditional_parent_widget/conditional_parent_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:home_widget/home_widget.dart';
@@ -582,7 +583,9 @@ class _HomePageContentState extends State<HomePageContent>
         body: Stack(
           children: <Widget>[
             Positioned.fill(
-              child: DragToMoveArea(
+              child: ConditionalParentWidget(
+                condition: isDesktop(),
+                parentBuilder: (Widget child) => DragToMoveArea(child: child),
                 child: FittedBox(
                   fit: BoxFit.cover,
                   child: const _ImageDisplay(),
