@@ -271,7 +271,7 @@ class _HomePageContentState extends State<HomePageContent>
     windowManager.addListener(this);
     trayManager.addListener(this);
 
-    if (!isDesktop()) {
+    if (Platform.isAndroid) {
       initWorkManager();
     }
     initLayout();
@@ -400,7 +400,7 @@ class _HomePageContentState extends State<HomePageContent>
       _setImageFile(null);
 
       _clearStorage();
-      if (!isDesktop()) {
+      if (Platform.isAndroid) {
         cancelBackgroundTask();
       }
       setState(() {
