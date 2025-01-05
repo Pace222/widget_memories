@@ -554,7 +554,7 @@ class _HomePageContentState extends State<HomePageContent>
               child: const _ImageDisplay()
             ),
             Positioned(
-              top: MediaQuery.of(context).padding.top,
+              top: MediaQuery.of(context).padding.top + 16.0,
               left: 16.0,
               child: BackButton(
                 onPressed: () {
