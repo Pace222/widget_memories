@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path_provider_foundation/path_provider_foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tray_manager/tray_manager.dart';
 import 'package:widget_memories/home_widget.dart';
 import 'package:widget_memories/image_bloc.dart';
 import 'package:window_manager/window_manager.dart';
@@ -97,6 +98,15 @@ void main() async {
       await windowManager.show();
       await windowManager.focus();
     });
+
+    await trayManager.setIcon(
+      switch(Platform.operatingSystem) {
+        'windows' => 'windows/runner/resources/app_icon.ico',
+        _ => 'assets/images/icon.png',
+      },
+    );
+    await trayManager.setToolTip('Memories');
+
   } else {
     await HomeWidget.setAppGroupId(iOSGroupId);
   }
@@ -141,7 +151,7 @@ class HomePageContent extends StatefulWidget {
 }
 
 class _HomePageContentState extends State<HomePageContent>
-    with WidgetsBindingObserver, WindowListener {
+    with WidgetsBindingObserver, WindowListener, TrayListener {
   SharedPreferencesAsync storage = SharedPreferencesAsync();
 
   int _currentPageIndex = 0;
@@ -172,6 +182,11 @@ class _HomePageContentState extends State<HomePageContent>
   void onWindowFocus() {
     // Make sure to call once.
     setState(() {});
+  }
+
+  @override
+  void onTrayIconMouseDown() {
+    windowManager.show();
   }
 
   Future<void> initWorkManager() async {
@@ -229,6 +244,7 @@ class _HomePageContentState extends State<HomePageContent>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     windowManager.addListener(this);
+    trayManager.addListener(this);
 
     if (!isDesktop()) {
       initWorkManager();
@@ -240,6 +256,7 @@ class _HomePageContentState extends State<HomePageContent>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     windowManager.removeListener(this);
+    trayManager.removeListener(this);
     super.dispose();
   }
 
