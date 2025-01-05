@@ -732,7 +732,7 @@ class _URLPickerState extends State<_URLPicker> {
 class _ImageDisplay extends StatelessWidget {
   const _ImageDisplay({super.key});
 
-  final defaultSize = const Size(180, 320);
+  final defaultSize = const Size(180, 240);
 
   @override
   Widget build(BuildContext context) {
