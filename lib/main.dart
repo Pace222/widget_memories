@@ -174,40 +174,59 @@ class _HomePageContentState extends State<HomePageContent>
   }
 
   Future<void> initWorkManager() async {
-    if (Platform.isIOS) {
-      final status = await Permission.backgroundRefresh.status;
-      if (status != PermissionStatus.granted) {
-        _displayMessage(
-            'Background app refresh is disabled, please enable in '
-            'App settings. Status: ${status.name}',
-            isError: true);
-        return;
+    if (Platform.isWindows) {
+      // TODO: Implement Windows
+      return;
+    } else if (Platform.isAndroid || Platform.isIOS) {
+      if (Platform.isIOS) {
+        final status = await Permission.backgroundRefresh.status;
+        if (status != PermissionStatus.granted) {
+          _displayMessage(
+              'Background app refresh is disabled, please enable in '
+              'App settings. Status: ${status.name}',
+              isError: true);
+          return;
+        }
       }
-    }
 
-    await Workmanager().initialize(
-      callbackDispatcher,
-      isInDebugMode: true,
-    );
-    setState(() {
-      _launchTaskDisabled = false;
-    });
+      await Workmanager().initialize(
+        callbackDispatcher,
+        isInDebugMode: true,
+      );
+      setState(() {
+        _launchTaskDisabled = false;
+      });
+    }
   }
 
   Future<void> launchBackgroundTask() async {
-    final dailyKey = Platform.isAndroid ? androidDailyTask : iOSDailyTask;
+    if (Platform.isWindows) {
+      // TODO: Implement Windows
+      return;
+    } else if (Platform.isAndroid || Platform.isIOS) {
+      final dailyKey = Platform.isAndroid ? androidDailyTask : iOSDailyTask;
 
-    await Workmanager().cancelAll();
+      await Workmanager().cancelAll();
 
-    await Workmanager().registerPeriodicTask(
-      dailyKey,
-      dailyKey,
-      frequency: const Duration(
-          hours: 12), // Android: Every 12 hours to be sure, iOS: Every 1 hour
-      initialDelay: Duration(seconds: _calculateInitialDelay()),
-    );
+      await Workmanager().registerPeriodicTask(
+        dailyKey,
+        dailyKey,
+        frequency: const Duration(
+            hours: 12), // Android: Every 12 hours to be sure, iOS: Every 1 hour
+        initialDelay: Duration(seconds: _calculateInitialDelay()),
+      );
 
-    _displayMessage('Background task scheduled for next night', isError: false);
+      _displayMessage('Background task scheduled for next night', isError: false);
+    }
+  }
+
+  Future<void> cancelBackgroundTask() async {
+    if (Platform.isWindows) {
+      // TODO: Implement Windows
+      return;
+    } else if (Platform.isAndroid || Platform.isIOS) {
+      await Workmanager().cancelAll();
+    }
   }
 
   int _calculateInitialDelay() {
@@ -351,7 +370,7 @@ class _HomePageContentState extends State<HomePageContent>
       _setImageFile(null);
 
       _clearStorage();
-      await Workmanager().cancelAll();
+      cancelBackgroundTask();
       setState(() {
         _apiURL = null;
         _ready = false;
