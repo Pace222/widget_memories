@@ -29,10 +29,11 @@ const String iOSWidgetName = 'PhotoWidget';
 const String androidWidgetName = 'PhotoWidget';
 
 Future<void> setImgFilename() async {
-  final directory = Platform.isAndroid
-      ? (await getApplicationDocumentsDirectory()).path
-      : await PathProviderFoundation()
-          .getContainerPath(appGroupIdentifier: iOSGroupId);
+  final directory = switch(Platform.operatingSystem) {
+    'android' => (await getApplicationDocumentsDirectory()).path,
+    'ios' => await PathProviderFoundation().getContainerPath(appGroupIdentifier: iOSGroupId),
+    _ => (await getApplicationCacheDirectory()).path,
+  };
   imgFilename = "${directory}/todaysPhoto.png";
 }
 
@@ -72,8 +73,6 @@ void main() async {
 
   await setImgFilename();
 
-  await HomeWidget.setAppGroupId(iOSGroupId);
-
   if (isDesktop()) {
     final storage = SharedPreferencesAsync();
     final apiURL = await storage.getString('apiURL');
@@ -88,15 +87,17 @@ void main() async {
 
     await windowManager.ensureInitialized();
     WindowOptions windowOptions = WindowOptions(
-      size: Size(1080, 1920),
+      size: Size(507, 676),
+      minimumSize: Size(507, 676),
       center: true,
       backgroundColor: Colors.transparent,
-      skipTaskbar: true,
     );
     windowManager.waitUntilReadyToShow(windowOptions, () async {
       await windowManager.show();
       await windowManager.focus();
     });
+  } else {
+    await HomeWidget.setAppGroupId(iOSGroupId);
   }
   runApp(const App());
 }
@@ -142,7 +143,7 @@ class _HomePageContentState extends State<HomePageContent>
     with WidgetsBindingObserver, WindowListener {
   SharedPreferencesAsync storage = SharedPreferencesAsync();
 
-  int _currentPageIndex = isDesktop() ? 1 : 0;
+  int _currentPageIndex = 0;
 
   String? _apiURL;
   late TextEditingController _controller = TextEditingController()
@@ -173,40 +174,59 @@ class _HomePageContentState extends State<HomePageContent>
   }
 
   Future<void> initWorkManager() async {
-    if (Platform.isIOS) {
-      final status = await Permission.backgroundRefresh.status;
-      if (status != PermissionStatus.granted) {
-        _displayMessage(
-            'Background app refresh is disabled, please enable in '
-            'App settings. Status: ${status.name}',
-            isError: true);
-        return;
+    if (Platform.isWindows) {
+      // TODO: Implement Windows
+      return;
+    } else if (Platform.isAndroid || Platform.isIOS) {
+      if (Platform.isIOS) {
+        final status = await Permission.backgroundRefresh.status;
+        if (status != PermissionStatus.granted) {
+          _displayMessage(
+              'Background app refresh is disabled, please enable in '
+              'App settings. Status: ${status.name}',
+              isError: true);
+          return;
+        }
       }
-    }
 
-    await Workmanager().initialize(
-      callbackDispatcher,
-      isInDebugMode: true,
-    );
-    setState(() {
-      _launchTaskDisabled = false;
-    });
+      await Workmanager().initialize(
+        callbackDispatcher,
+        isInDebugMode: true,
+      );
+      setState(() {
+        _launchTaskDisabled = false;
+      });
+    }
   }
 
   Future<void> launchBackgroundTask() async {
-    final dailyKey = Platform.isAndroid ? androidDailyTask : iOSDailyTask;
+    if (Platform.isWindows) {
+      // TODO: Implement Windows
+      return;
+    } else if (Platform.isAndroid || Platform.isIOS) {
+      final dailyKey = Platform.isAndroid ? androidDailyTask : iOSDailyTask;
 
-    await Workmanager().cancelAll();
+      await Workmanager().cancelAll();
 
-    await Workmanager().registerPeriodicTask(
-      dailyKey,
-      dailyKey,
-      frequency: const Duration(
-          hours: 12), // Android: Every 12 hours to be sure, iOS: Every 1 hour
-      initialDelay: Duration(seconds: _calculateInitialDelay()),
-    );
+      await Workmanager().registerPeriodicTask(
+        dailyKey,
+        dailyKey,
+        frequency: const Duration(
+            hours: 12), // Android: Every 12 hours to be sure, iOS: Every 1 hour
+        initialDelay: Duration(seconds: _calculateInitialDelay()),
+      );
 
-    _displayMessage('Background task scheduled for next night', isError: false);
+      _displayMessage('Background task scheduled for next night', isError: false);
+    }
+  }
+
+  Future<void> cancelBackgroundTask() async {
+    if (Platform.isWindows) {
+      // TODO: Implement Windows
+      return;
+    } else if (Platform.isAndroid || Platform.isIOS) {
+      await Workmanager().cancelAll();
+    }
   }
 
   int _calculateInitialDelay() {
@@ -224,9 +244,7 @@ class _HomePageContentState extends State<HomePageContent>
     WidgetsBinding.instance.addObserver(this);
     windowManager.addListener(this);
 
-    if (Platform.isAndroid) {
-      initWorkManager();
-    }
+    initWorkManager();
     initLayout();
   }
 
@@ -352,9 +370,7 @@ class _HomePageContentState extends State<HomePageContent>
       _setImageFile(null);
 
       _clearStorage();
-      if (Platform.isAndroid) {
-        await Workmanager().cancelAll();
-      }
+      cancelBackgroundTask();
       setState(() {
         _apiURL = null;
         _ready = false;
@@ -376,18 +392,8 @@ class _HomePageContentState extends State<HomePageContent>
         bottomNavigationBar: NavigationBar(
           onDestinationSelected: (int index) async {
             if (isDesktop() && index == 1) {
-              final state = BlocProvider.of<ImageBloc>(context).state;
-              Size newSize;
-              if (state is ImageLoaded) {
-                final image = await decodeImageFromList(state.imageFile.readAsBytesSync());
-                newSize = Size(image.width.toDouble(), image.height.toDouble());
-              } else {
-                newSize = _ImageDisplay().defaultSize;
-              }
-              final currentSize = windowManager.getSize();
-              // TODO
-              windowManager.setSize(newSize);
-              windowManager.setAsFrameless();
+              await windowManager.setAsFrameless();
+              await windowManager.setHasShadow(true);
             }
             setState(() {
               _currentPageIndex = index;
@@ -545,13 +551,19 @@ class _HomePageContentState extends State<HomePageContent>
         body: Stack(
           children: <Widget>[
             Positioned.fill(
-              child: const _ImageDisplay()
+              child: FittedBox(
+                fit: BoxFit.cover,
+                child: const _ImageDisplay(),
+              ),
             ),
             Positioned(
-              top: MediaQuery.of(context).padding.top,
+              top: MediaQuery.of(context).padding.top + 16.0,
               left: 16.0,
               child: BackButton(
                 onPressed: () {
+                  if (isDesktop()) {
+                    windowManager.setTitleBarStyle(TitleBarStyle.normal);
+                  }
                   setState(() {
                     _currentPageIndex = 0;
                   });
@@ -720,7 +732,7 @@ class _URLPickerState extends State<_URLPicker> {
 class _ImageDisplay extends StatelessWidget {
   const _ImageDisplay({super.key});
 
-  final defaultSize = const Size(180, 320);
+  final defaultSize = const Size(180, 240);
 
   @override
   Widget build(BuildContext context) {
