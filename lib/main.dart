@@ -558,6 +558,9 @@ class _HomePageContentState extends State<HomePageContent>
               left: 16.0,
               child: BackButton(
                 onPressed: () {
+                  if (isDesktop()) {
+                    windowManager.setTitleBarStyle(TitleBarStyle.normal);
+                  }
                   setState(() {
                     _currentPageIndex = 0;
                   });
