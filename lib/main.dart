@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 import 'dart:io';
 import 'dart:math';
 
+import 'package:conditional_parent_widget/conditional_parent_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:home_widget/home_widget.dart';
@@ -10,8 +11,10 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path_provider_foundation/path_provider_foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tray_manager/tray_manager.dart';
 import 'package:widget_memories/home_widget.dart';
 import 'package:widget_memories/image_bloc.dart';
+import 'package:window_manager/window_manager.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'drive.dart';
@@ -23,15 +26,16 @@ const String iOSDailyTask = "com.example.widgetMemories.updateDaily";
 
 late String imgFilename;
 
-const String iOSGroupId = 'group.widget_memories_group';
+const String iOSGroupId = 'group.com.example.widgetMemoriesGroup';
 const String iOSWidgetName = 'PhotoWidget';
 const String androidWidgetName = 'PhotoWidget';
 
 Future<void> setImgFilename() async {
-  final directory = Platform.isAndroid
-      ? (await getApplicationDocumentsDirectory()).path
-      : await PathProviderFoundation()
-          .getContainerPath(appGroupIdentifier: iOSGroupId);
+  final directory = switch(Platform.operatingSystem) {
+    'android' => (await getApplicationDocumentsDirectory()).path,
+    'ios' => await PathProviderFoundation().getContainerPath(appGroupIdentifier: iOSGroupId),
+    _ => (await getApplicationCacheDirectory()).path,
+  };
   imgFilename = "${directory}/todaysPhoto.png";
 }
 
@@ -62,13 +66,70 @@ void callbackDispatcher() {
   });
 }
 
+bool isDesktop() {
+  return Platform.isLinux || Platform.isMacOS || Platform.isWindows;
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await setImgFilename();
 
-  await HomeWidget.setAppGroupId(iOSGroupId);
+  if (isDesktop()) {
+    final storage = SharedPreferencesAsync();
+    final apiURL = await storage.getString('apiURL');
+    final blacklist = await storage.getStringList('blacklist');
+    final lastUpdate = await storage.getString('lastUpdate');
+    if (apiURL != null && blacklist != null && lastUpdate != null) {
+      try {
+        await updateHomeWidget(storage, apiURL, lastUpdate, blacklist);
+      } catch (e) {
+      }
+    }
 
+    await windowManager.ensureInitialized();
+    WindowOptions windowOptions = WindowOptions(
+      size: Size(507, 676),
+      minimumSize: Size(507, 676),
+      center: true,
+      backgroundColor: Colors.transparent,
+      skipTaskbar: true,
+    );
+    windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.show();
+      await windowManager.focus();
+    });
+
+    await trayManager.setIcon(
+      switch(Platform.operatingSystem) {
+        'windows' => 'windows/runner/resources/app_icon.ico',
+        _ => 'assets/images/icon.png',
+      },
+    );
+    await trayManager.setToolTip('Memories');
+    await trayManager.setContextMenu(
+      Menu(
+        items: [
+        MenuItem(
+          label: 'Show',
+          onClick: (menuItemm) async {
+            await windowManager.show();
+          },
+        ),
+        MenuItem.separator(),
+        MenuItem(
+          label: 'Quit',
+          onClick: (menuItem) async {
+            await windowManager.close();
+          },
+        ),
+        ]
+      )
+    );    
+
+  } else {
+    await HomeWidget.setAppGroupId(iOSGroupId);
+  }
   runApp(const App());
 }
 
@@ -110,8 +171,10 @@ class HomePageContent extends StatefulWidget {
 }
 
 class _HomePageContentState extends State<HomePageContent>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, WindowListener, TrayListener {
   SharedPreferencesAsync storage = SharedPreferencesAsync();
+
+  int _currentPageIndex = 0;
 
   String? _apiURL;
   late TextEditingController _controller = TextEditingController()
@@ -133,6 +196,22 @@ class _HomePageContentState extends State<HomePageContent>
       default:
         break;
     }
+  }
+
+  @override
+  void onWindowFocus() {
+    // Make sure to call once.
+    setState(() {});
+  }
+
+  @override
+  void onTrayIconMouseDown() {
+    windowManager.show();
+  }
+
+  @override
+  void onTrayIconRightMouseDown() {
+    trayManager.popUpContextMenu();
   }
 
   Future<void> initWorkManager() async {
@@ -172,6 +251,10 @@ class _HomePageContentState extends State<HomePageContent>
     _displayMessage('Background task scheduled for next night', isError: false);
   }
 
+  Future<void> cancelBackgroundTask() async {
+    await Workmanager().cancelAll();
+  }
+
   int _calculateInitialDelay() {
     final now = DateTime.now();
     var targetTime = DateTime(now.year, now.month, now.day, updateTime, 0, 0);
@@ -185,8 +268,10 @@ class _HomePageContentState extends State<HomePageContent>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    windowManager.addListener(this);
+    trayManager.addListener(this);
 
-    if (Platform.isAndroid) {
+    if (!isDesktop()) {
       initWorkManager();
     }
     initLayout();
@@ -195,6 +280,8 @@ class _HomePageContentState extends State<HomePageContent>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    windowManager.removeListener(this);
+    trayManager.removeListener(this);
     super.dispose();
   }
 
@@ -313,8 +400,8 @@ class _HomePageContentState extends State<HomePageContent>
       _setImageFile(null);
 
       _clearStorage();
-      if (Platform.isAndroid) {
-        await Workmanager().cancelAll();
+      if (!isDesktop()) {
+        cancelBackgroundTask();
       }
       setState(() {
         _apiURL = null;
@@ -327,145 +414,202 @@ class _HomePageContentState extends State<HomePageContent>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
-      ),
-      body: LayoutBuilder(
-          builder: (BuildContext context, BoxConstraints constraints) {
-        return SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: constraints.maxHeight,
+    return <Widget>[
+      Scaffold(
+        resizeToAvoidBottomInset: false,
+        appBar: AppBar(
+          backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+          title: Text(widget.title),
+        ),
+        bottomNavigationBar: NavigationBar(
+          onDestinationSelected: (int index) async {
+            if (isDesktop() && index == 1) {
+              await windowManager.setTitleBarStyle(TitleBarStyle.hidden);
+              await windowManager.setHasShadow(true);
+            }
+            setState(() {
+              _currentPageIndex = index;
+            });
+          },
+          selectedIndex: _currentPageIndex,
+          destinations: const <Widget>[
+            NavigationDestination(
+              icon: Icon(Icons.edit),
+              label: 'Configure',
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: IntrinsicHeight(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    _URLPicker(
-                        apiURL: _apiURL,
-                        controller: _controller,
-                        validationError: _validationError),
-                    const SizedBox(height: 4),
-                    const Spacer(flex: 2),
-                    Flexible(
-                      flex: 3,
-                      child: SizedBox.expand(
-                        child: Column(
-                          children: <Widget>[
-                            Expanded(
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceAround,
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  LoadingButton(
-                                    onPressed: !_ready &&
-                                            _controller.text.trim().isEmpty
-                                        ? null
-                                        : () async {
-                                            FocusManager.instance.primaryFocus
-                                                ?.unfocus();
-                                            final newApiURL =
-                                                _controller.text.trim();
-                                            if (newApiURL.isEmpty || await _checkApiUrl(newApiURL)) {
-                                              await _updateWidget(newApiURL);
-                                            }
-                                          },
-                                    text: 'Update widget',
-                                    style: ElevatedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 8.0,
-                                        horizontal: 16.0,
+            NavigationDestination(
+              icon: Icon(Icons.remove_red_eye),
+              label: 'View',
+            ),
+          ],
+        ),
+        body: LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: constraints.maxHeight,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: IntrinsicHeight(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      _URLPicker(
+                          apiURL: _apiURL,
+                          controller: _controller,
+                          validationError: _validationError),
+                      const SizedBox(height: 4),
+                      const Spacer(flex: 4),
+                      Flexible(
+                        flex: 6,
+                        child: SizedBox.expand(
+                          child: Column(
+                            children: <Widget>[
+                              Expanded(
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceAround,
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    LoadingButton(
+                                      onPressed: !_ready &&
+                                              _controller.text.trim().isEmpty
+                                          ? null
+                                          : () async {
+                                              FocusManager.instance.primaryFocus
+                                                  ?.unfocus();
+                                              final newApiURL =
+                                                  _controller.text.trim();
+                                              if (newApiURL.isEmpty || await _checkApiUrl(newApiURL)) {
+                                                await _updateWidget(newApiURL);
+                                              }
+                                            },
+                                      text: 'Update widget',
+                                      style: ElevatedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 8.0,
+                                          horizontal: 16.0,
+                                        ),
                                       ),
+                                      areButtonsDisabled: _areButtonsDisabled,
+                                      setDisableButtons: _setDisableButtons,
                                     ),
-                                    areButtonsDisabled: _areButtonsDisabled,
-                                    setDisableButtons: _setDisableButtons,
-                                  ),
-                                  LoadingButton(
-                                    onPressed: _launchTaskDisabled || !_ready
-                                        ? null
-                                        : () async {
-                                            await launchBackgroundTask();
-                                          },
-                                    text: 'To background task',
-                                    style: ElevatedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 8.0,
-                                        horizontal: 16.0,
+                                    LoadingButton(
+                                      onPressed: _launchTaskDisabled || !_ready
+                                          ? null
+                                          : () async {
+                                              await launchBackgroundTask();
+                                            },
+                                      text: 'To background task',
+                                      style: ElevatedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 8.0,
+                                          horizontal: 16.0,
+                                        ),
                                       ),
+                                      areButtonsDisabled: _areButtonsDisabled,
+                                      setDisableButtons: _setDisableButtons,
                                     ),
-                                    areButtonsDisabled: _areButtonsDisabled,
-                                    setDisableButtons: _setDisableButtons,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Spacer(flex: 1),
-                    Flexible(
-                      flex: 2,
-                      child: SizedBox.expand(
-                        child: Column(children: <Widget>[
-                          Expanded(
-                            child: LoadingButton(
-                              onPressed: !_ready
-                                  ? null
-                                  : () async {
-                                      FocusManager.instance.primaryFocus
-                                          ?.unfocus();
-                                      await _clearWidget();
-                                    },
-                              text: 'Clear widget',
-                              style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 8.0,
-                                  horizontal: 32.0,
+                                  ],
                                 ),
-                                foregroundColor:
-                                    Theme.of(context).colorScheme.onError,
-                                backgroundColor:
-                                    Theme.of(context).colorScheme.error,
                               ),
-                              animationColor:
-                                  Theme.of(context).colorScheme.onError,
-                              areButtonsDisabled: _areButtonsDisabled,
-                              setDisableButtons: _setDisableButtons,
-                            ),
+                            ],
                           ),
-                        ]),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Spacer(flex: 2),
-                    Column(
-                      children: [
-                        Text(
-                          'Current Picture:',
-                          style: Theme.of(context).textTheme.labelLarge,
                         ),
-                        const SizedBox(height: 4),
-                        SizedBox(
-                            height: constraints.maxHeight * 0.45,
-                            child: FittedBox(child: const _ImageDisplay())),
-                      ],
-                    ),
-                  ],
+                      ),
+                      const SizedBox(height: 4),
+                      const Spacer(flex: 1),
+                      Flexible(
+                        flex: 4,
+                        child: SizedBox.expand(
+                          child: Column(children: <Widget>[
+                            Expanded(
+                              child: LoadingButton(
+                                onPressed: !_ready
+                                    ? null
+                                    : () async {
+                                        FocusManager.instance.primaryFocus
+                                            ?.unfocus();
+                                        await _clearWidget();
+                                      },
+                                text: 'Clear widget',
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8.0,
+                                    horizontal: 32.0,
+                                  ),
+                                  foregroundColor:
+                                      Theme.of(context).colorScheme.onError,
+                                  backgroundColor:
+                                      Theme.of(context).colorScheme.error,
+                                ),
+                                animationColor:
+                                    Theme.of(context).colorScheme.onError,
+                                areButtonsDisabled: _areButtonsDisabled,
+                                setDisableButtons: _setDisableButtons,
+                              ),
+                            ),
+                          ]),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Spacer(flex: 2),
+                      Column(
+                        children: <Widget>[
+                          Text(
+                            'Current Picture:',
+                            style: Theme.of(context).textTheme.labelLarge,
+                          ),
+                          const SizedBox(height: 4),
+                          SizedBox(
+                            height: constraints.maxHeight * 0.4,
+                            child: FittedBox(
+                              child: const _ImageDisplay()
+                            )
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        );
-      }),
-    );
+          );
+        }),
+      ),
+      Scaffold(
+        body: Stack(
+          children: <Widget>[
+            Positioned.fill(
+              child: ConditionalParentWidget(
+                condition: isDesktop(),
+                parentBuilder: (Widget child) => DragToMoveArea(child: child),
+                child: FittedBox(
+                  fit: BoxFit.cover,
+                  child: const _ImageDisplay(),
+                ),
+              ),
+            ),
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 16.0,
+              left: 16.0,
+              child: BackButton(
+                onPressed: () {
+                  if (isDesktop()) {
+                    windowManager.setTitleBarStyle(TitleBarStyle.normal);
+                  }
+                  setState(() {
+                    _currentPageIndex = 0;
+                  });
+                },
+              )
+            )
+          ],
+        )
+      ),
+    ][_currentPageIndex];
   }
 }
 
@@ -556,8 +700,7 @@ class _LoadingButtonState extends State<LoadingButton> {
 
 class _URLPicker extends StatefulWidget {
   const _URLPicker(
-      {super.key,
-      required String? apiURL,
+      {required String? apiURL,
       required TextEditingController controller,
       required String? validationError})
       : _apiURL = apiURL,
@@ -622,7 +765,9 @@ class _URLPickerState extends State<_URLPicker> {
 }
 
 class _ImageDisplay extends StatelessWidget {
-  const _ImageDisplay({super.key});
+  const _ImageDisplay();
+
+  final defaultSize = const Size(180, 240);
 
   @override
   Widget build(BuildContext context) {
@@ -633,8 +778,8 @@ class _ImageDisplay extends StatelessWidget {
         );
       } else {
         return Container(
-          width: 180,
-          height: 320,
+          width: defaultSize.width,
+          height: defaultSize.height,
           decoration: BoxDecoration(
             border: Border.all(
                 color: Theme.of(context)

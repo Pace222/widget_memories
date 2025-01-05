@@ -9,6 +9,10 @@ import 'package:widget_memories/edit_image.dart';
 import 'package:widget_memories/main.dart';
 
 Future<void> setHomeWidget(File? file) async {
+  if (!Platform.isAndroid && !Platform.isIOS) {
+    return;
+  }
+
   await HomeWidget.saveWidgetData('filename', file?.path);
 
   var ok = await HomeWidget.updateWidget(
