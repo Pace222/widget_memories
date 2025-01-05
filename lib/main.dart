@@ -461,9 +461,9 @@ class _HomePageContentState extends State<HomePageContent>
                           controller: _controller,
                           validationError: _validationError),
                       const SizedBox(height: 4),
-                      const Spacer(flex: 2),
+                      const Spacer(flex: 4),
                       Flexible(
-                        flex: 3,
+                        flex: 6,
                         child: SizedBox.expand(
                           child: Column(
                             children: <Widget>[
@@ -522,7 +522,7 @@ class _HomePageContentState extends State<HomePageContent>
                       const SizedBox(height: 4),
                       const Spacer(flex: 1),
                       Flexible(
-                        flex: 2,
+                        flex: 4,
                         child: SizedBox.expand(
                           child: Column(children: <Widget>[
                             Expanded(
