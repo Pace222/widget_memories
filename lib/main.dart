@@ -87,15 +87,27 @@ void main() async {
       }
     }
 
+    const minimumSize = Size(507, 676);
+
+    final windowX = await storage.getDouble('windowX');
+    final windowY = await storage.getDouble('windowY');
+    final windowWidth = await storage.getDouble('windowWidth') ?? minimumSize.width;
+    final windowHeight = await storage.getDouble('windowHeight') ?? minimumSize.height;
+
     await windowManager.ensureInitialized();
     WindowOptions windowOptions = WindowOptions(
-      size: Size(507, 676),
-      minimumSize: Size(507, 676),
+      size: Size(windowWidth, windowHeight),
+      minimumSize: minimumSize,
       center: true,
       backgroundColor: Colors.transparent,
       skipTaskbar: true,
     );
     windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.setPreventClose(true);
+
+      if (windowX != null && windowY != null) {
+        await windowManager.setPosition(Offset(windowX, windowY));
+      }
       await windowManager.show();
       await windowManager.focus();
     });
@@ -205,6 +217,25 @@ class _HomePageContentState extends State<HomePageContent>
   }
 
   @override
+  void onWindowClose() async {
+    try {
+      Offset position = await windowManager.getPosition();
+      Size size = await windowManager.getSize();
+    
+      await Future.wait(
+        [
+          storage.setDouble('windowX', position.dx),
+          storage.setDouble('windowY', position.dy),
+          storage.setDouble('windowWidth', size.width),
+          storage.setDouble('windowHeight', size.height),
+        ]
+      );
+    } finally {
+      await windowManager.destroy();
+    }
+  }
+
+  @override
   void onTrayIconMouseDown() {
     windowManager.show();
   }
@@ -302,6 +333,13 @@ class _HomePageContentState extends State<HomePageContent>
         _ready = true;
         _setImageFile(file);
       });
+
+      if (isDesktop()) {
+        windowManager.setTitleBarStyle(TitleBarStyle.hidden);
+        setState(() {
+          _currentPageIndex = 1;
+        });
+      }
     } else if (apiURL != null) {
       _displayMessage('Inconsistent state. You should clear the widget.',
           isError: true);
@@ -422,10 +460,10 @@ class _HomePageContentState extends State<HomePageContent>
           title: Text(widget.title),
         ),
         bottomNavigationBar: NavigationBar(
-          onDestinationSelected: (int index) async {
+          onDestinationSelected: (int index) {
             if (isDesktop() && index == 1) {
-              await windowManager.setTitleBarStyle(TitleBarStyle.hidden);
-              await windowManager.setHasShadow(true);
+              windowManager.setTitleBarStyle(TitleBarStyle.hidden);
+              windowManager.setHasShadow(true);
             }
             setState(() {
               _currentPageIndex = index;
