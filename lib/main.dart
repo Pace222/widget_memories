@@ -392,18 +392,8 @@ class _HomePageContentState extends State<HomePageContent>
         bottomNavigationBar: NavigationBar(
           onDestinationSelected: (int index) async {
             if (isDesktop() && index == 1) {
-              final state = BlocProvider.of<ImageBloc>(context).state;
-              Size newSize;
-              if (state is ImageLoaded) {
-                final image = await decodeImageFromList(state.imageFile.readAsBytesSync());
-                newSize = Size(image.width.toDouble(), image.height.toDouble());
-              } else {
-                newSize = _ImageDisplay().defaultSize;
-              }
-              final currentSize = windowManager.getSize();
-              // TODO
-              windowManager.setSize(newSize);
-              windowManager.setAsFrameless();
+              await windowManager.setAsFrameless();
+              await windowManager.setHasShadow(true);
             }
             setState(() {
               _currentPageIndex = index;
