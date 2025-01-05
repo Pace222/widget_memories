@@ -29,10 +29,11 @@ const String iOSWidgetName = 'PhotoWidget';
 const String androidWidgetName = 'PhotoWidget';
 
 Future<void> setImgFilename() async {
-  final directory = Platform.isAndroid
-      ? (await getApplicationDocumentsDirectory()).path
-      : await PathProviderFoundation()
-          .getContainerPath(appGroupIdentifier: iOSGroupId);
+  final directory = switch(Platform.operatingSystem) {
+    'android' => (await getApplicationDocumentsDirectory()).path,
+    'ios' => await PathProviderFoundation().getContainerPath(appGroupIdentifier: iOSGroupId),
+    _ => (await getApplicationCacheDirectory()).path,
+  };
   imgFilename = "${directory}/todaysPhoto.png";
 }
 
