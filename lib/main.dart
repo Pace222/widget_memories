@@ -106,6 +106,25 @@ void main() async {
       },
     );
     await trayManager.setToolTip('Memories');
+    await trayManager.setContextMenu(
+      Menu(
+        items: [
+        MenuItem(
+          label: 'Show',
+          onClick: (menuItemm) async {
+            await windowManager.show();
+          },
+        ),
+        MenuItem.separator(),
+        MenuItem(
+          label: 'Quit',
+          onClick: (menuItem) async {
+            await windowManager.close();
+          },
+        ),
+        ]
+      )
+    );    
 
   } else {
     await HomeWidget.setAppGroupId(iOSGroupId);
@@ -187,6 +206,11 @@ class _HomePageContentState extends State<HomePageContent>
   @override
   void onTrayIconMouseDown() {
     windowManager.show();
+  }
+
+  @override
+  void onTrayIconRightMouseDown() {
+    trayManager.popUpContextMenu();
   }
 
   Future<void> initWorkManager() async {
