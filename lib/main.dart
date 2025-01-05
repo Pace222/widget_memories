@@ -73,8 +73,6 @@ void main() async {
 
   await setImgFilename();
 
-  await HomeWidget.setAppGroupId(iOSGroupId);
-
   if (isDesktop()) {
     final storage = SharedPreferencesAsync();
     final apiURL = await storage.getString('apiURL');
@@ -98,6 +96,8 @@ void main() async {
       await windowManager.show();
       await windowManager.focus();
     });
+  } else {
+    await HomeWidget.setAppGroupId(iOSGroupId);
   }
   runApp(const App());
 }
