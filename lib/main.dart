@@ -653,8 +653,7 @@ class _LoadingButtonState extends State<LoadingButton> {
 
 class _URLPicker extends StatefulWidget {
   const _URLPicker(
-      {super.key,
-      required String? apiURL,
+      {required String? apiURL,
       required TextEditingController controller,
       required String? validationError})
       : _apiURL = apiURL,
@@ -719,7 +718,7 @@ class _URLPickerState extends State<_URLPicker> {
 }
 
 class _ImageDisplay extends StatelessWidget {
-  const _ImageDisplay({super.key});
+  const _ImageDisplay();
 
   final defaultSize = const Size(180, 240);
 
