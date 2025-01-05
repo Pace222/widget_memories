@@ -551,7 +551,10 @@ class _HomePageContentState extends State<HomePageContent>
         body: Stack(
           children: <Widget>[
             Positioned.fill(
-              child: const _ImageDisplay()
+              child: FittedBox(
+                fit: BoxFit.cover,
+                child: const _ImageDisplay(),
+              ),
             ),
             Positioned(
               top: MediaQuery.of(context).padding.top + 16.0,
