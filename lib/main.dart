@@ -422,10 +422,10 @@ class _HomePageContentState extends State<HomePageContent>
           title: Text(widget.title),
         ),
         bottomNavigationBar: NavigationBar(
-          onDestinationSelected: (int index) async {
+          onDestinationSelected: (int index) {
             if (isDesktop() && index == 1) {
-              await windowManager.setTitleBarStyle(TitleBarStyle.hidden);
-              await windowManager.setHasShadow(true);
+              windowManager.setTitleBarStyle(TitleBarStyle.hidden);
+              windowManager.setHasShadow(true);
             }
             setState(() {
               _currentPageIndex = index;
