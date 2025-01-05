@@ -4,12 +4,13 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:widget_memories/main.dart';
 
 final finalWidth = Platform.isAndroid ? 1080 : 720;
 
 Future<Uint8List> imageWithText(Uint8List imageBytes, String text) async {
   // Reduce the resolution
-  final resizedBytes = !Platform.isWindows
+  final resizedBytes = !isDesktop()
       ? await FlutterImageCompress.compressWithList(
           imageBytes,
           minWidth: finalWidth,
