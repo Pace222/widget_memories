@@ -302,6 +302,13 @@ class _HomePageContentState extends State<HomePageContent>
         _ready = true;
         _setImageFile(file);
       });
+
+      if (isDesktop()) {
+        windowManager.setTitleBarStyle(TitleBarStyle.hidden);
+        setState(() {
+          _currentPageIndex = 1;
+        });
+      }
     } else if (apiURL != null) {
       _displayMessage('Inconsistent state. You should clear the widget.',
           isError: true);
