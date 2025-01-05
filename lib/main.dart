@@ -582,9 +582,11 @@ class _HomePageContentState extends State<HomePageContent>
         body: Stack(
           children: <Widget>[
             Positioned.fill(
-              child: FittedBox(
-                fit: BoxFit.cover,
-                child: const _ImageDisplay(),
+              child: DragToMoveArea(
+                child: FittedBox(
+                  fit: BoxFit.cover,
+                  child: const _ImageDisplay(),
+                ),
               ),
             ),
             Positioned(
