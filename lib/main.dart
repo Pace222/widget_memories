@@ -143,7 +143,7 @@ class _HomePageContentState extends State<HomePageContent>
     with WidgetsBindingObserver, WindowListener {
   SharedPreferencesAsync storage = SharedPreferencesAsync();
 
-  int _currentPageIndex = isDesktop() ? 1 : 0;
+  int _currentPageIndex = 0;
 
   String? _apiURL;
   late TextEditingController _controller = TextEditingController()
