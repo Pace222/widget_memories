@@ -8,7 +8,7 @@
 import WidgetKit
 import SwiftUI
 
-private let widgetGroupId = "group.widget_memories_group"
+private let widgetGroupId = "group.com.example.widgetMemoriesGroup"
 
 struct Provider: TimelineProvider {
     func placeholder(in context: Context) -> PhotoWidgetEntry {

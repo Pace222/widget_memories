@@ -24,7 +24,7 @@ const String iOSDailyTask = "com.example.widgetMemories.updateDaily";
 
 late String imgFilename;
 
-const String iOSGroupId = 'group.widget_memories_group';
+const String iOSGroupId = 'group.com.example.widgetMemoriesGroup';
 const String iOSWidgetName = 'PhotoWidget';
 const String androidWidgetName = 'PhotoWidget';
 
