@@ -91,6 +91,7 @@ void main() async {
       minimumSize: Size(507, 676),
       center: true,
       backgroundColor: Colors.transparent,
+      skipTaskbar: true,
     );
     windowManager.waitUntilReadyToShow(windowOptions, () async {
       await windowManager.show();
@@ -381,7 +382,7 @@ class _HomePageContentState extends State<HomePageContent>
         bottomNavigationBar: NavigationBar(
           onDestinationSelected: (int index) async {
             if (isDesktop() && index == 1) {
-              await windowManager.setAsFrameless();
+              await windowManager.setTitleBarStyle(TitleBarStyle.hidden);
               await windowManager.setHasShadow(true);
             }
             setState(() {
