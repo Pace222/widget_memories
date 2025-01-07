@@ -40,9 +40,9 @@ Widget Memories is a Flutter app designed to choose a random picture from a Goog
 1. Launch the app and paste a Google Drive link for a folder your API key has access to. The folder can contain subfolders: the app recursively traverses them to find all images.
 1. Press `Update widget` to configure the home widget.
 1. Platform-specific functionality:
-    - Android: Press `Set background task` to enable daily automatic updates at midnight.
-    - iOS: Update the widget manually in the app each day through `Update widget`.
+    - Android/iOS: Press `Set background task` to enable daily automatic updates at midnight.
     - Windows: Press the `View` icon to fill the window with the picture. The latter is updated every time the app launches. The app is not present on the taskbar by design, as it is intended to stay in the background. It can still be focused through the system tray.
+1. On all platforms, you can always update the widget manually each day through `Update widget`.
 - Note: If no pictures were taken on the current day, the app looks back through previous days until it finds one. It thus maintains a blacklist to avoid repeated pictures on consecutive days. Ensure daily updates for guaranteed synchronization across users.
 
 ## Maintainers
